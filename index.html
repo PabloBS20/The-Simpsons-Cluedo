@@ -9,30 +9,23 @@
     <style>
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
-        
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
-        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; }
-        
+        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; color: #000; }
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
         .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
-        
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
         button:disabled { background: #555; cursor: not-allowed; color: #888; }
         .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
-        #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; font-family: monospace; }
-
+        #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; }
         .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; }
-        .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; cursor: pointer; }
-        .notepad-item input { width: 15px; height: 15px; cursor: pointer; }
-        .notepad-item input:checked + label { text-decoration: line-through; color: #888; }
+        .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; }
         .notepad-category { grid-column: span 2; color: var(--accent-color); border-bottom: 1px solid #444; margin-top: 10px; font-size: 0.9em; text-transform: uppercase; }
     </style>
 </head>
@@ -41,14 +34,14 @@
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
         <div id="setup-step">
-            <input type="text" id="room-id" placeholder="Enter Class Code (2A)">
+            <input type="text" id="room-id" placeholder="Enter Room Name (e.g. 2A)">
             <button onclick="joinRoom()">Enter Room</button>
         </div>
         <div id="char-step" style="display:none;">
             <h3 id="lobby-instruction">Pick your character:</h3>
             <div id="char-btns" class="btn-group"></div>
             <p id="wait-msg" style="margin-top:20px;"></p>
-            <button onclick="db.ref(roomPath).remove(); location.reload();" style="background:#e74c3c; color:white; margin-top:30px; font-size:10px;">Teacher: Reset Room</button>
+            <button onclick="db.ref(roomPath).remove(); location.reload();" style="background:#e74c3c; color:white; margin-top:30px; font-size:10px;">RESET ROOM</button>
         </div>
     </div>
 
@@ -65,7 +58,7 @@
                 <h3>Suggestion</h3>
                 <select id="guess-suspect" style="width:100%; margin-bottom:5px;"></select>
                 <select id="guess-weapon" style="width:100%; margin-bottom:5px;"></select>
-                <button id="suggest-btn" onclick="makeSuggestion()" style="width:100%">Make Suggestion</button>
+                <button onclick="makeSuggestion()" style="width:100%">Make Suggestion</button>
             </div>
             <div class="section">
                 <h3>Detective Notebook</h3>
@@ -92,7 +85,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // FIXED: Character names (no period for Mr Burns) and added image references
     const characters = [
         { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, img: 'homer.png' },
         { name: "Moe", color: "#4dabf7", startX: 11, startY: 3, img: 'moe.png' },
@@ -142,13 +134,14 @@
             btn.onclick = () => selectChar(c.name);
             area.appendChild(btn);
         });
-        if (myChar !== "") document.getElementById('lobby-instruction').textContent = "You are: " + myChar;
-        const activePlayers = localState.players ? Object.keys(localState.players) : [];
-        document.getElementById('wait-msg').textContent = `${activePlayers.length} players joined.`;
-        if (activePlayers.length >= 2 && !localState.started && myChar !== "") {
+        if (myChar !== "") document.getElementById('lobby-instruction').textContent = "Selected: " + myChar;
+        const active = localState.players ? Object.keys(localState.players) : [];
+        document.getElementById('wait-msg').textContent = `${active.length} Players in Lobby`;
+        if (active.length >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
-            startBtn.textContent = "START GAME NOW";
+            startBtn.textContent = "START GAME";
             startBtn.style.background = "#2ecc71";
+            startBtn.style.display = "block";
             startBtn.style.marginTop = "20px";
             startBtn.onclick = hostInit;
             area.appendChild(startBtn);
@@ -169,9 +162,9 @@
         const activePlayers = Object.keys(localState.players);
         activePlayers.forEach(p => hands[p] = []);
         cards.forEach((card, idx) => hands[activePlayers[idx % activePlayers.length]].push(card));
-        let firstTurnIndex = characters.findIndex(c => localState.players && localState.players[c.name]);
+        let firstTurn = characters.findIndex(c => localState.players[c.name]);
         db.ref(roomPath).update({
-            started: true, turn: firstTurnIndex, solution: solution, hands: hands,
+            started: true, turn: firstTurn, solution: solution, hands: hands,
             positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
             logs: ["Game Started!"]
         });
@@ -200,25 +193,22 @@
         document.querySelectorAll('.player-token').forEach(t => t.remove());
         characters.forEach(c => {
             const pos = localState.positions?.[c.name];
-            if (!pos || !localState.players?.[c.name]) return;
+            if (!pos) return;
             const token = document.createElement('div');
-            token.className = 'player-token' + (localState.players[c.name].eliminated ? ' eliminated' : '');
+            token.className = 'player-token' + (localState.players?.[c.name]?.eliminated ? ' eliminated' : '');
             token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
             token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
-            // FIXED: Applied images to tokens
             token.style.backgroundImage = `url('${c.img}')`;
-            token.style.backgroundSize = "cover";
             token.style.backgroundColor = c.color;
             document.getElementById('board-wrapper').appendChild(token);
         });
     }
 
     function renderSidebar() {
-        if (localState.turn === undefined) return;
-        const activePlayer = characters[localState.turn].name;
-        const isMyTurn = activePlayer === myChar;
-        document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activePlayer}'s Turn`;
-        // FIXED: Dice logic
+        const turnIdx = localState.turn || 0;
+        const activeChar = characters[turnIdx].name;
+        const isMyTurn = activeChar === myChar;
+        document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activeChar}'s Turn`;
         document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
         document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
         document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
@@ -240,19 +230,16 @@
         }
     }
 
-    // FIXED: Added Suggestion function
     function makeSuggestion() {
-        if (characters[localState.turn].name !== myChar) return alert("Not your turn!");
         const pos = localState.positions[myChar];
         const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        if (!r) return alert("You must be in a room!");
+        if (!r) return alert("Must be in a room!");
         const s = document.getElementById('guess-suspect').value;
         const w = document.getElementById('guess-weapon').value;
         addLog(`${myChar} suggests: ${s} with the ${w} in the ${r}`);
         if (localState.positions[s]) db.ref(roomPath + '/positions/' + s).set({ x: pos.x, y: pos.y });
     }
 
-    // FIXED: Handle skipping missing/eliminated players
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
@@ -310,5 +297,4 @@
 </script>
 </body>
 </html>
-
 
