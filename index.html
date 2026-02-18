@@ -3,148 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simpsons Cluedo - 2º ESO</title>
+    <title>Simpsons Cluedo - 2º ESO Edition</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
         :root { --bg-color: #0b0b0b; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', sans-serif; }
         
-        /* Lobby Styles */
-        #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; max-width: 600px;}
-        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; color: #000; text-align: center; }
+        /* Layout */
+        #game-container { display: none; width: 100vw; height: 100vh; flex-direction: row; }
+        #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #222; position: relative; overflow: hidden; }
+        #board-wrapper { position: relative; width: 95%; aspect-ratio: 24 / 25; background-image: url('tablero.jpg'); background-size: 100% 100%; border: 5px solid #444; }
         
-        /* Main Layout */
-        #game-container { display: none; width: 100vw; height: 100vh; display: flex; flex-direction: row; }
-        
-        /* Board Area - Fixed Aspect Ratio to match tablero.jpg exactly */
-        #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #222; padding: 20px; box-sizing: border-box; }
-        #board-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: 24 / 25; background-image: url('tablero.jpg'); background-size: 100% 100%; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
-        
-        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 10; }
-        .cell { border: 1px solid rgba(255, 255, 255, 0.05); cursor: pointer; transition: background 0.2s; }
-        .cell:hover { background: rgba(255, 217, 15, 0.3); } /* Highlight on hover */
-        
-        /* Room Labels */
-        #room-labels-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
-        .room-label { position: absolute; color: rgba(255,255,255,0.9); font-size: clamp(0.6rem, 1.2vw, 1rem); font-weight: 900; text-transform: uppercase; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); box-sizing: border-box; padding: 2px; text-align: center; border-radius: 4px; text-shadow: 1px 1px 2px #000; border: 1px solid rgba(255,255,255,0.2); }
+        /* Grid */
+        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; z-index: 10; }
+        .cell { border: 1px solid rgba(255, 255, 255, 0.03); cursor: pointer; }
+        .cell:hover { background: rgba(255, 217, 15, 0.2); }
 
-        /* UI Sidebar */
-        #ui-sidebar { width: 380px; min-width: 380px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; z-index: 50; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; }
-        .section { background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; }
-        .section h3 { margin-top: 0; margin-bottom: 10px; color: var(--accent-color); text-transform: uppercase; font-size: 0.9em; border-bottom: 1px solid #333; padding-bottom: 5px; }
-
-        /* Tokens */
-        .player-token { width: 3.5%; height: 3.5%; position: absolute; transform: translate(-50%, -50%); transition: 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); border-radius: 50%; border: 3px solid #fff; background-position: center; background-size: cover; box-shadow: 0 5px 15px rgba(0,0,0,0.9); z-index: 20; }
-        .eliminated { opacity: 0.3; filter: grayscale(1); }
-        
-        /* Buttons & Forms */
-        button { padding: 12px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; text-transform: uppercase; transition: transform 0.1s, background 0.2s; }
-        button:hover:not(:disabled) { transform: scale(1.02); background: #ffea5c; }
-        button:active:not(:disabled) { transform: scale(0.98); }
-        button:disabled { background: #555; cursor: not-allowed; color: #888; }
-        select { padding: 8px; border-radius: 4px; background: #222; color: #fff; border: 1px solid #444; margin-bottom: 8px; font-size: 0.9em; }
-        
-        /* Cards & Notebook */
-        .card { background: #333; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--accent-color); font-size: 0.85em; margin: 3px; display: inline-block; font-weight: bold; color: var(--accent-color); }
-        .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8em; }
-        .notepad-category { grid-column: span 2; color: #aaa; margin-top: 5px; font-size: 0.8em; text-transform: uppercase; border-bottom: 1px solid #333; }
-        .notepad-item { display: flex; align-items: center; gap: 5px; }
-        
-        /* Log */
-        #log { height: 120px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 10px; border: 1px solid #333; color: #0f0; border-radius: 5px; font-family: monospace; }
-        
-        /* Dice specific styles */
-        #dice-container { font-size: 4em; text-align: center; color: var(--accent-color); display: flex; justify-content: center; gap: 10px; user-select: none; }
-        .die { display: inline-block; animation: none; }
-        @keyframes roll {
-            0% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.2); }
-            100% { transform: rotate(360deg) scale(1); }
+        /* Domino Tokens */
+        .player-domino { 
+            position: absolute; width: 3.8%; height: 6%; 
+            transform: translate(-50%, -50%); transition: 0.5s; 
+            z-index: 20; border-radius: 4px; border: 2px solid white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.6rem; font-weight: bold; color: black; text-align: center;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.5);
         }
 
-        /* Toast Notifications */
-        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-        .toast { background: rgba(0,0,0,0.9); border: 2px solid var(--accent-color); color: #fff; padding: 15px 30px; border-radius: 8px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: slideDown 0.4s ease-out, fadeOut 0.4s 4.6s forwards; text-align: center; font-size: 1.2rem; }
-        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; } }
+        /* Sidebar & UI */
+        #ui-sidebar { width: 360px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .section { background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        .status-bar { background: #ffd90f; color: #000; padding: 10px; font-weight: bold; text-align: center; border-radius: 5px; margin-bottom: 10px; }
+        
+        /* Dice */
+        #dice-box { display: flex; justify-content: center; gap: 15px; font-size: 3rem; margin: 10px 0; color: var(--accent-color); }
+        .die { transition: 0.1s; }
+
+        /* Notebook */
+        .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.75rem; }
+        .cat-title { grid-column: span 2; color: var(--accent-color); font-size: 0.7rem; text-transform: uppercase; margin-top: 8px; border-bottom: 1px solid #333; }
+        
+        /* Modal for showing cards */
+        #disprove-modal { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; 
+            display: none; flex-direction: column; align-items: center; justify-content: center; 
+        }
+        .card-btn { padding: 15px; margin: 10px; background: #ffd90f; color: black; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* Lobby */
+        #lobby { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        button { padding: 10px 20px; background: var(--accent-color); border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #555; }
     </style>
 </head>
 <body>
 
-    <div id="toast-container"></div>
+<div id="lobby">
+    <h1 style="color:var(--accent-color)">SIMPSONS CLUEDO 2º ESO</h1>
+    <input type="text" id="room-input" placeholder="Room Name" style="padding:10px; margin-bottom:10px;">
+    <button onclick="joinRoom()">JOIN ROOM</button>
+    <div id="char-selection" style="margin-top:20px; display:none;">
+        <p>Pick your character:</p>
+        <div id="char-btns"></div>
+    </div>
+</div>
 
-    <div id="lobby-screen">
-        <h1 style="color:var(--accent-color); font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 5px #000;">SIMPSONS CLUEDO ONLINE</h1>
-        <h2 style="color: #ccc; font-size: 1.5em; margin-bottom: 40px;">2º ESO Edition</h2>
-        
-        <div id="setup-step">
-            <input type="text" id="room-id" placeholder="Enter Room Name (e.g. class2eso)">
-            <button onclick="joinRoom()" style="padding: 12px 20px; font-size: 1.1em; margin-top: 10px;">Enter Room</button>
-        </div>
-        
-        <div id="char-step" style="display:none;">
-            <h3 id="lobby-instruction">Select your character:</h3>
-            <div id="char-btns" class="btn-group"></div>
-            <p id="wait-msg" style="margin-top:20px; color: #888; font-style: italic;"></p>
-            <button onclick="db.ref(roomPath).remove(); location.reload();" style="background:#e74c3c; color:white; margin-top:40px; font-size:0.8em; padding: 8px 15px;">RESET ROOM</button>
+<div id="disprove-modal">
+    <h2 id="disprove-msg">Show a card to disprove:</h2>
+    <div id="disprove-options"></div>
+</div>
+
+<div id="game-container">
+    <div id="board-area">
+        <div id="board-wrapper">
+            <div id="grid-overlay"></div>
         </div>
     </div>
 
-    <div id="game-container">
-        <div id="board-area">
-            <div id="board-wrapper">
-                <div id="room-labels-layer"></div> 
-                <div id="grid-overlay"></div>
-            </div>
+    <div id="ui-sidebar">
+        <div id="location-bar" class="status-bar">Location: Loading...</div>
+        <div id="turn-info" style="text-align:center; font-weight:bold; color: #ffd90f;">Waiting for players...</div>
+        
+        <div class="section">
+            <div id="dice-box"><span id="d1">⚀</span><span id="d2">⚀</span></div>
+            <button id="roll-btn" style="width:100%" onclick="rollDice()">ROLL DICE</button>
         </div>
 
-        <div id="ui-sidebar">
-            <div style="text-align: center; margin-bottom: 10px;">
-                <h2 id="turn-indicator" style="margin: 0; font-size: 1.8em; padding: 10px; border-radius: 5px; background: #222; border: 1px solid #444;">Waiting...</h2>
-            </div>
-            
-            <div class="section">
-                <h3>Movement</h3>
-                <div id="dice-container">
-                    <span class="die" id="die1">⚀</span>
-                    <span class="die" id="die2">⚀</span>
-                </div>
-                <div style="display: flex; gap: 5px; margin-top: 10px;">
-                    <button id="roll-btn" onclick="triggerDiceRoll()" style="flex: 2;">Roll Dice</button>
-                    <button id="end-turn-btn" onclick="endTurn()" style="flex: 1; background:#444; color:white;">End Turn</button>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>Suggestion</h3>
-                <div id="current-room-display" style="color: var(--accent-color); font-weight: bold; margin-bottom: 8px;">Location: Hallway</div>
-                <select id="guess-suspect" style="width:100%;"></select>
-                <select id="guess-weapon" style="width:100%;"></select>
-                <button onclick="makeSuggestion()" style="width:100%">Make Suggestion</button>
-            </div>
-
-            <div class="section">
-                <h3>Detective Notebook</h3>
-                <div id="notebook-container" class="notepad-grid"></div>
-            </div>
-
-            <div class="section" style="flex-grow: 1;">
-                <h3>Your Private Hand</h3>
-                <div id="my-hand" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
-            </div>
-
-            <div class="section" style="margin-bottom: 0;">
-                <button style="background:#e74c3c; color:white; width:100%" onclick="makeAccusation()">FINAL ACCUSATION</button>
-            </div>
-            
-            <div id="log"></div>
+        <div class="section">
+            <select id="s-suspect" style="width:100%; margin-bottom:5px;"></select>
+            <select id="s-weapon" style="width:100%; margin-bottom:10px;"></select>
+            <button id="suggest-btn" style="width:100%" onclick="handleSuggestion()">SUGGEST</button>
         </div>
+
+        <div class="section">
+            <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">MY CARDS:</div>
+            <div id="my-hand"></div>
+        </div>
+
+        <div class="section" style="flex-grow:1">
+            <div class="notepad-grid" id="notebook"></div>
+        </div>
+
+        <button style="background:#e74c3c; color:white;" onclick="handleAccusation()">FINAL ACCUSATION</button>
+        <div id="game-log" style="height:100px; overflow-y:auto; font-size:0.7rem; background:#000; padding:5px; margin-top:5px; font-family:monospace;"></div>
     </div>
+</div>
 
 <script>
-    // --- FIREBASE CONFIGURATION ---
+    // --- DATABASE CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyCxN2d4RZyt9Q5JOKZxT7pJ5NBirAoxEn4",
         databaseURL: "https://cluedo-821bd-default-rtdb.firebaseio.com",
@@ -153,22 +119,16 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- GAME DATA & CONFIGURATION ---
-    const diceUnicode = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-
+    // --- DATA ---
+    const suspects = ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"];
+    const weapons = ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"];
+    const rooms = ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"];
     const characters = [
-        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, img: 'homer.png' },
-        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3, img: 'moe.png' },
-        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2, img: 'duffman.png' },
-        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12, img: 'burns.png' }
+        { name: "Homer", color: "#ffd90f", x: 2, y: 2 },
+        { name: "Moe", color: "#4dabf7", x: 11, y: 3 },
+        { name: "Duffman", color: "#ff6b6b", x: 20, y: 2 },
+        { name: "Mr Burns", color: "#51cf66", x: 3, y: 12 }
     ];
-
-    const gameData = {
-        suspects: ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"],
-        weapons: ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"],
-        rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
-    };
-
     const roomZones = [
         { name: "Cafeteria", x1: 0, y1: 0, x2: 4, y2: 6 },
         { name: "Lab", x1: 6, y1: 0, x2: 11, y2: 5 },
@@ -185,348 +145,260 @@
         { name: "Annex", x1: 21, y1: 10, x2: 23, y2: 14 }
     ];
 
-    let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false; let previousLogCount = 0;
+    let roomPath, myName, localState, movesLeft = 0;
 
-    // --- LOBBY & INITIALIZATION ---
+    // --- LOBBY LOGIC ---
     function joinRoom() {
-        const id = document.getElementById('room-id').value.trim();
-        if (!id) return;
-        roomPath = 'cluedo_rooms/' + id;
-        document.getElementById('setup-step').style.display = 'none';
-        document.getElementById('char-step').style.display = 'block';
-        
-        db.ref(roomPath).on('value', (snap) => {
+        const id = document.getElementById('room-input').value;
+        if(!id) return;
+        roomPath = 'cluedo/' + id;
+        document.getElementById('char-selection').style.display = 'block';
+        db.ref(roomPath).on('value', snap => {
             localState = snap.val() || {};
-            
-            // Handle Toasts for new logs
-            if (localState.logs && localState.logs.length > previousLogCount && localState.started) {
-                const newLog = localState.logs[localState.logs.length - 1];
-                if (newLog.includes("suggests:") || newLog.includes("WON!") || newLog.includes("Eliminated")) {
-                    showToast(newLog);
-                }
-                previousLogCount = localState.logs.length;
-            }
-
-            if (localState.started) startGameUI();
-            else renderLobby();
+            updateUI();
         });
+        renderLobbyBtns();
     }
 
-    function renderLobby() {
-        const area = document.getElementById('char-btns');
-        area.innerHTML = "";
+    function renderLobbyBtns() {
+        const container = document.getElementById('char-btns');
+        container.innerHTML = "";
         characters.forEach(c => {
-            const btn = document.createElement('button');
-            btn.textContent = c.name;
-            btn.style.backgroundColor = c.color;
-            const isTaken = localState.players && localState.players[c.name];
-            btn.disabled = isTaken || myChar !== "";
-            if(isTaken) btn.style.opacity = '0.5';
-            btn.onclick = () => selectChar(c.name);
-            area.appendChild(btn);
+            const b = document.createElement('button');
+            b.textContent = c.name; b.style.margin = "5px";
+            b.onclick = () => selectChar(c.name);
+            container.appendChild(b);
         });
-        
-        const active = localState.players ? Object.keys(localState.players) : [];
-        document.getElementById('wait-msg').textContent = `${active.length} / 4 Players connected.`;
-        
-        if (active.length >= 2 && !localState.started && myChar !== "") {
-            const startBtn = document.createElement('button');
-            startBtn.textContent = "START GAME";
-            startBtn.style.background = "#2ecc71";
-            startBtn.style.color = "white";
-            startBtn.style.marginTop = "20px";
-            startBtn.style.width = "100%";
-            startBtn.onclick = function() { this.disabled = true; hostInit(); }; // Prevent double clicks
-            area.appendChild(startBtn);
-        }
     }
 
     function selectChar(name) {
-        myChar = name;
-        db.ref(roomPath + '/players/' + name).set({ eliminated: false });
-    }
-
-    // --- RANDOMIZED SOLUTION GENERATOR ---
-    function hostInit() {
-        // 1. Pick a fully random solution
-        const solution = {
-            suspect: gameData.suspects[Math.floor(Math.random() * gameData.suspects.length)],
-            weapon: gameData.weapons[Math.floor(Math.random() * gameData.weapons.length)],
-            room: gameData.rooms[Math.floor(Math.random() * gameData.rooms.length)]
-        };
-
-        // 2. Distribute remaining cards
-        let cards = [...gameData.suspects, ...gameData.weapons, ...gameData.rooms]
-            .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
-        cards.sort(() => Math.random() - 0.5); // Shuffle deck
-        
-        let hands = {};
-        const players = Object.keys(localState.players);
-        players.forEach(p => hands[p] = []);
-        cards.forEach((card, idx) => hands[players[idx % players.length]].push(card)); // Deal cards
-        
-        // 3. Set up first turn
-        let firstTurn = characters.findIndex(c => localState.players[c.name]);
-        
-        // 4. Push to Firebase
-        db.ref(roomPath).update({
-            started: true, 
-            turn: firstTurn, 
-            solution: solution, 
-            hands: hands,
-            positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
-            logs: ["Game Started!"]
-        });
-    }
-
-    // --- GAME UI & RENDERING ---
-    function startGameUI() {
-        document.getElementById('lobby-screen').style.display = 'none';
+        myName = name;
+        db.ref(roomPath + '/players/' + name).set({ name, active: true });
+        document.getElementById('lobby').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
+        initNotebook();
+        if(!localState.started) checkStart();
+    }
+
+    function checkStart() {
+        const pCount = Object.keys(localState.players || {}).length;
+        if(pCount >= 2 && !localState.started) {
+            const deck = [...suspects, ...weapons, ...rooms];
+            const sol = { s: suspects[Math.floor(Math.random()*6)], w: weapons[Math.floor(Math.random()*6)], r: rooms[Math.floor(Math.random()*13)] };
+            const mainDeck = deck.filter(c => c !== sol.s && c !== sol.w && c !== sol.r).sort(() => Math.random() - 0.5);
+            
+            let hands = {};
+            Object.keys(localState.players).forEach((p, i) => {
+                hands[p] = mainDeck.filter((_, idx) => idx % pCount === i);
+            });
+
+            db.ref(roomPath).update({
+                started: true, turn: 0, solution: sol, hands,
+                positions: characters.reduce((a, v) => ({...a, [v.name]: {x: v.x, y: v.y}}), {}),
+                logs: ["Game Started!"]
+            });
+        }
+    }
+
+    // --- GAMEPLAY ---
+    function updateUI() {
+        if(!localState.started) return;
         
-        setupDropdowns(); 
-        renderBoard(); 
-        renderSidebar(); 
-        renderNotebook();
-        drawRoomLabels();
-    }
-
-    function drawRoomLabels() {
-        const layer = document.getElementById('room-labels-layer');
-        layer.innerHTML = "";
-        roomZones.forEach(z => {
-            const label = document.createElement('div');
-            label.className = 'room-label';
-            label.textContent = z.name;
-            // Calculating standard CSS Grid overlays
-            label.style.left = (z.x1 * (100 / 24)) + "%";
-            label.style.top = (z.y1 * (100 / 25)) + "%";
-            label.style.width = ((z.x2 - z.x1 + 1) * (100 / 24)) + "%";
-            label.style.height = ((z.y2 - z.y1 + 1) * (100 / 25)) + "%";
-            layer.appendChild(label);
+        // 1. Update Grid/Tokens
+        const wrapper = document.getElementById('board-wrapper');
+        document.querySelectorAll('.player-domino').forEach(d => d.remove());
+        Object.keys(localState.positions).forEach(p => {
+            const pos = localState.positions[p];
+            const dom = document.createElement('div');
+            dom.className = 'player-domino';
+            dom.style.left = (pos.x * (100/24) + 2) + "%";
+            dom.style.top = (pos.y * (100/25) + 3) + "%";
+            dom.style.backgroundColor = characters.find(c => c.name === p).color;
+            dom.textContent = p;
+            wrapper.appendChild(dom);
         });
+
+        // 2. Turn Logic
+        const playerOrder = Object.keys(localState.players);
+        const activeChar = playerOrder[localState.turn];
+        const isMyTurn = activeChar === myName;
+        document.getElementById('turn-info').textContent = isMyTurn ? "IT IS YOUR TURN!" : `Waiting for ${activeChar}...`;
+        document.getElementById('roll-btn').disabled = !isMyTurn || movesLeft > 0;
+        
+        // 3. Room Detection & Suggestion Enforcing
+        const myPos = localState.positions[myName];
+        const currentRoom = roomZones.find(z => myPos.x >= z.x1 && myPos.x <= z.x2 && myPos.y >= z.y1 && myPos.y <= z.y2);
+        document.getElementById('location-bar').textContent = "Location: " + (currentRoom ? currentRoom.name : "Hallway");
+        document.getElementById('suggest-btn').disabled = !isMyTurn || !currentRoom;
+
+        // 4. Disprove Mechanic logic
+        if(localState.pendingDisprove && localState.pendingDisprove.to === myName) {
+            showDisproveModal(localState.pendingDisprove);
+        }
+
+        // 5. Populate lists once
+        if(document.getElementById('s-suspect').options.length === 0) {
+            suspects.forEach(s => document.getElementById('s-suspect').innerHTML += `<option>${s}</option>`);
+            weapons.forEach(w => document.getElementById('s-weapon').innerHTML += `<option>${w}</option>`);
+        }
+        
+        document.getElementById('my-hand').innerHTML = localState.hands[myName].map(c => `<span style="font-size:0.7rem; background:#333; padding:2px 5px; margin:2px; border-radius:3px;">${c}</span>`).join(' ');
+        document.getElementById('game-log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
 
-    function renderBoard() {
-        const grid = document.getElementById('grid-overlay');
-        grid.innerHTML = "";
-        for (let i = 0; i < 24 * 25; i++) {
+    function rollDice() {
+        const r1 = Math.floor(Math.random()*6)+1;
+        const r2 = Math.floor(Math.random()*6)+1;
+        movesLeft = r1 + r2;
+        document.getElementById('d1').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r1];
+        document.getElementById('d2').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r2];
+        addLog(`${myName} rolled a ${movesLeft}`);
+        renderGrid();
+    }
+
+    function renderGrid() {
+        const g = document.getElementById('grid-overlay');
+        g.innerHTML = "";
+        for(let i=0; i<24*25; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            const x = i % 24; const y = Math.floor(i / 24);
-            cell.onclick = () => handleMove(x, y);
-            grid.appendChild(cell);
+            const x = i%24; const y = Math.floor(i/24);
+            cell.onclick = () => movePlayer(x, y);
+            g.appendChild(cell);
         }
-        updateTokens();
     }
 
-    function updateTokens() {
-        document.querySelectorAll('.player-token').forEach(t => t.remove());
-        characters.forEach(c => {
-            const pos = localState.positions?.[c.name];
-            if (!pos) return;
-            const token = document.createElement('div');
-            token.className = 'player-token' + (localState.players?.[c.name]?.eliminated ? ' eliminated' : '');
-            // Exact centering inside the cell
-            token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
-            token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
-            token.style.backgroundImage = `url('${c.img}')`;
-            token.style.backgroundColor = c.color;
-            document.getElementById('board-wrapper').appendChild(token);
-            
-            if (c.name === myChar) {
-                const room = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2);
-                document.getElementById('current-room-display').textContent = "Location: " + (room ? room.name : "Hallway");
-            }
+    function movePlayer(x, y) {
+        if(movesLeft <= 0) return;
+        const pos = localState.positions[myName];
+        const dist = Math.abs(pos.x - x) + Math.abs(pos.y - y);
+        if(dist <= movesLeft) {
+            db.ref(roomPath + '/positions/' + myName).set({x, y});
+            movesLeft = 0;
+            document.getElementById('grid-overlay').innerHTML = "";
+        }
+    }
+
+    // --- SUGGESTION & DISPROVE LOGIC ---
+    function handleSuggestion() {
+        const s = document.getElementById('s-suspect').value;
+        const w = document.getElementById('s-weapon').value;
+        const r = roomZones.find(z => {
+            const p = localState.positions[myName];
+            return p.x >= z.x1 && p.x <= z.x2 && p.y >= z.y1 && p.y <= z.y2;
+        }).name;
+
+        addLog(`🕵️ ${myName} suggests: ${s} in ${r} with ${w}`);
+        
+        // Find next player to disprove
+        const players = Object.keys(localState.players);
+        const myIdx = players.indexOf(myName);
+        const nextIdx = (myIdx + 1) % players.length;
+        const nextPlayer = players[nextIdx];
+
+        db.ref(roomPath + '/pendingDisprove').set({
+            from: myName,
+            to: nextPlayer,
+            cards: [s, w, r]
         });
     }
 
-    function renderSidebar() {
-        const turnIdx = localState.turn || 0;
-        const activeChar = characters[turnIdx].name;
-        const isMyTurn = activeChar === myChar;
-        const turnBox = document.getElementById('turn-indicator');
-        
-        turnBox.textContent = isMyTurn ? "🚨 YOUR TURN! 🚨" : `Waiting for ${activeChar}...`;
-        turnBox.style.color = isMyTurn ? "#2ecc71" : "#aaa";
-        turnBox.style.borderColor = isMyTurn ? "#2ecc71" : "#444";
+    function showDisproveModal(data) {
+        const modal = document.getElementById('disprove-modal');
+        const options = document.getElementById('disprove-options');
+        const myCards = localState.hands[myName];
+        const matches = myCards.filter(c => data.cards.includes(c));
 
-        document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
-        document.getElementById('end-turn-btn').disabled = !isMyTurn;
-        
-        document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
-        document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
-    }
+        modal.style.display = 'flex';
+        options.innerHTML = "";
 
-    // --- DICE ANIMATION LOGIC ---
-    function triggerDiceRoll() {
-        document.getElementById('roll-btn').disabled = true;
-        const die1 = document.getElementById('die1');
-        const die2 = document.getElementById('die2');
-        
-        die1.style.animation = "roll 0.5s infinite linear";
-        die2.style.animation = "roll 0.5s infinite linear reverse";
-
-        let rolls = 0;
-        const rollInterval = setInterval(() => {
-            die1.textContent = diceUnicode[Math.floor(Math.random() * 6)];
-            die2.textContent = diceUnicode[Math.floor(Math.random() * 6)];
-            rolls++;
-            
-            // Stop animation after ~1 second
-            if(rolls > 15) {
-                clearInterval(rollInterval);
-                die1.style.animation = "none";
-                die2.style.animation = "none";
-                finishDiceRoll();
-            }
-        }, 60);
-    }
-
-    function finishDiceRoll() {
-        const r1 = Math.floor(Math.random() * 6) + 1;
-        const r2 = Math.floor(Math.random() * 6) + 1;
-        
-        document.getElementById('die1').textContent = diceUnicode[r1 - 1];
-        document.getElementById('die2').textContent = diceUnicode[r2 - 1];
-        
-        currentRoll = r1 + r2;
-        addLog(`${myChar} rolled a ${currentRoll}.`);
-    }
-
-    // --- MOVEMENT & GAMEPLAY LOGIC ---
-    function handleMove(x, y) {
-        if (currentRoll === 0 || characters[localState.turn].name !== myChar) return;
-        
-        const pos = localState.positions[myChar];
-        const distance = Math.abs(pos.x - x) + Math.abs(pos.y - y);
-        
-        if (distance <= currentRoll) {
-            db.ref(roomPath + '/positions/' + myChar).set({ x, y });
-            addLog(`${myChar} moved.`);
-            currentRoll = 0; 
-            hasMovedThisTurn = true;
+        if(matches.length === 0) {
+            const b = document.createElement('button');
+            b.className = 'card-btn'; b.textContent = "I cannot disprove";
+            b.onclick = () => passDisprove(data);
+            options.appendChild(b);
         } else {
-            // Optional: Alert the student they clicked too far
-            showToast("Too far! You only rolled a " + currentRoll);
+            matches.forEach(m => {
+                const b = document.createElement('button');
+                b.className = 'card-btn'; b.textContent = "Show " + m;
+                b.onclick = () => sendDisprove(m, data.from);
+                options.appendChild(b);
+            });
         }
     }
 
-    function makeSuggestion() {
-        if (characters[localState.turn].name !== myChar) {
-            showToast("It is not your turn!");
-            return;
-        }
+    function sendDisprove(card, toPlayer) {
+        addLog(`${myName} showed a card to ${toPlayer}`);
+        db.ref(roomPath + '/pendingDisprove').remove();
+        document.getElementById('disprove-modal').style.display = 'none';
         
-        const pos = localState.positions[myChar];
-        const room = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        
-        if (!room) {
-            showToast("You must be inside a room to suggest!");
-            return;
-        }
-        
-        const suspect = document.getElementById('guess-suspect').value;
-        const weapon = document.getElementById('guess-weapon').value;
-        
-        addLog(`🕵️ ${myChar} suggests: ${suspect} with the ${weapon} in the ${room}`);
-        
-        // Teleport suspect to the room
-        if (localState.positions[suspect]) {
-            db.ref(roomPath + '/positions/' + suspect).set({ x: pos.x, y: pos.y });
-        }
+        if(toPlayer === myName) return; // Shouldnt happen
+        // Automatically check it in their notebook via log or alert
+        alert(`You showed the ${card} card to ${toPlayer}`);
+        // Increment turn
+        nextTurn();
     }
 
-    function makeAccusation() {
-        if (characters[localState.turn].name !== myChar) return;
-        
-        const pos = localState.positions[myChar];
-        const room = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        
-        if (!room) {
-            showToast("You must be inside a room to accuse!");
-            return;
-        }
+    function passDisprove(data) {
+        const players = Object.keys(localState.players);
+        const currentToIdx = players.indexOf(myName);
+        const nextToIdx = (currentToIdx + 1) % players.length;
+        const nextPlayer = players[nextToIdx];
 
-        const suspect = document.getElementById('guess-suspect').value;
-        const weapon = document.getElementById('guess-weapon').value;
-        
-        const confirmMsg = `Are you sure? Accusing: ${suspect} in the ${room} with the ${weapon}. If you are wrong, you LOSE!`;
-        if(!confirm(confirmMsg)) return;
-
-        if (suspect === localState.solution.suspect && weapon === localState.solution.weapon && room === localState.solution.room) {
-            db.ref(roomPath).update({ started: false, logs: [...(localState.logs||[]), `🏆 ${myChar} WON! It was ${suspect} with the ${weapon} in the ${room}!`] });
+        if(nextPlayer === data.from) {
+            addLog(`Nobody could disprove the suggestion!`);
+            db.ref(roomPath + '/pendingDisprove').remove();
+            document.getElementById('disprove-modal').style.display = 'none';
+            nextTurn();
         } else {
-            db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
-            addLog(`❌ ${myChar} accused wrong and is Eliminated!`);
-            endTurn();
+            db.ref(roomPath + '/pendingDisprove/to').set(nextPlayer);
+            document.getElementById('disprove-modal').style.display = 'none';
         }
     }
 
-    function endTurn() {
-        if (characters[localState.turn].name !== myChar) return;
-        
-        let next = (localState.turn + 1) % 4;
-        
-        // Skip empty seats and eliminated players
-        while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
-            next = (next + 1) % 4;
-            if (next === localState.turn) break; // Everyone else is eliminated! Game over essentially.
-        }
-        
-        db.ref(roomPath).update({ turn: next });
-        
-        // Reset local turn variables
-        hasMovedThisTurn = false; 
-        currentRoll = 0;
-        document.getElementById('die1').textContent = '⚀';
-        document.getElementById('die2').textContent = '⚀';
+    function nextTurn() {
+        const next = (localState.turn + 1) % Object.keys(localState.players).length;
+        db.ref(roomPath + '/turn').set(next);
     }
 
-    // --- HELPERS & UTILITIES ---
-    function renderNotebook() {
-        const container = document.getElementById('notebook-container');
-        const cats = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
-        let html = "";
-        cats.forEach(cat => {
-            html += `<div class="notepad-category">${cat.title}</div>`;
-            cat.items.forEach(item => {
-                const key = `note-${roomPath}-${myChar}-${item}`;
-                const chk = localStorage.getItem(key) === 'true' ? 'checked' : '';
-                html += `<div class="notepad-item"><input type="checkbox" ${chk} onclick="localStorage.setItem('${key}', this.checked)"><label>${item}</label></div>`;
+    function addLog(m) {
+        const logs = localState.logs || [];
+        logs.push(m);
+        if(logs.length > 20) logs.shift();
+        db.ref(roomPath + '/logs').set(logs);
+    }
+
+    function initNotebook() {
+        const nb = document.getElementById('notebook');
+        const items = [
+            {t: "Suspects", i: suspects}, {t: "Weapons", i: weapons}, {t: "Rooms", i: rooms}
+        ];
+        items.forEach(cat => {
+            nb.innerHTML += `<div class="cat-title">${cat.t}</div>`;
+            cat.i.forEach(item => {
+                nb.innerHTML += `<div><input type="checkbox"> ${item}</div>`;
             });
         });
-        container.innerHTML = html;
     }
 
-    function setupDropdowns() {
-        const s = document.getElementById('guess-suspect');
-        const w = document.getElementById('guess-weapon');
-        if (s.options.length > 0) return;
-        gameData.suspects.forEach(i => s.innerHTML += `<option>${i}</option>`);
-        gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
-    }
+    function handleAccusation() {
+        const s = document.getElementById('s-suspect').value;
+        const w = document.getElementById('s-weapon').value;
+        const r = document.getElementById('location-bar').textContent.split(': ')[1];
+        if(r === "Hallway") return alert("Must be in a room to accuse!");
 
-    function addLog(msg) {
-        const newLogs = [...(localState.logs || []), msg];
-        if (newLogs.length > 15) newLogs.shift();
-        db.ref(roomPath + '/logs').set(newLogs);
+        if(s === localState.solution.s && w === localState.solution.w && r === localState.solution.r) {
+            addLog(`🏆 ${myName} WON! It was ${s} in the ${r} with the ${w}!`);
+            db.ref(roomPath + '/started').set(false);
+        } else {
+            addLog(`❌ ${myName} accused wrongly and is OUT!`);
+            nextTurn();
+        }
     }
-
-    function showToast(message) {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = message;
-        container.appendChild(toast);
-        
-        // Remove from DOM after animation completes (5 seconds)
-        setTimeout(() => toast.remove(), 5000);
-    }
-
 </script>
 </body>
 </html>
+
 
 
 
