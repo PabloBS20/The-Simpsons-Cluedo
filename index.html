@@ -39,7 +39,7 @@
             <button onclick="joinRoom()">Enter Room</button>
         </div>
         <div id="char-step" style="display:none;">
-            <h3>Pick your character:</h3>
+            <h3 id="lobby-instruction">Pick your character:</h3>
             <div id="char-btns" class="btn-group"></div>
             <p id="wait-msg" style="margin-top:20px;"></p>
             <button onclick="db.ref(roomPath).remove(); location.reload();" style="background:#e74c3c; color:white; margin-top:30px; font-size:10px;">Teacher: Reset Room</button>
@@ -127,22 +127,30 @@
     function renderLobby() {
         const area = document.getElementById('char-btns');
         area.innerHTML = "";
+        
         characters.forEach(c => {
             const btn = document.createElement('button');
             btn.textContent = c.name;
-            btn.disabled = !!(localState.players && localState.players[c.name]);
+            const isTaken = localState.players && localState.players[c.name];
+            btn.disabled = isTaken || myChar !== "";
             btn.onclick = () => selectChar(c.name);
             area.appendChild(btn);
         });
 
-        const playerCount = localState.players ? Object.keys(localState.players).length : 0;
+        if (myChar !== "") {
+            document.getElementById('lobby-instruction').textContent = "You are: " + myChar;
+        }
+
+        const activePlayers = localState.players ? Object.keys(localState.players) : [];
+        const playerCount = activePlayers.length;
         document.getElementById('wait-msg').textContent = `${playerCount} players joined.`;
         
-        // FIXED: Show start button to any player once 2+ have joined
+        // Show start button if at least 2 players have joined and you have picked a character
         if (playerCount >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
             startBtn.textContent = "START GAME NOW";
             startBtn.style.background = "#2ecc71";
+            startBtn.style.marginTop = "20px";
             startBtn.onclick = hostInit;
             area.appendChild(startBtn);
         }
@@ -166,8 +174,7 @@
             hands[activePlayers[idx % activePlayers.length]].push(card);
         });
 
-        // Find the index of the first character actually picked by a player
-        let firstTurnIndex = characters.findIndex(c => localState.players[c.name]);
+        let firstTurnIndex = characters.findIndex(c => localState.players && localState.players[c.name]);
 
         db.ref(roomPath).update({
             started: true,
