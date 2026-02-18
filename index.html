@@ -9,26 +9,21 @@
     <style>
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
-        
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
         input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; }
-        
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
         .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
         .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
-        
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
         button:disabled { background: #555; cursor: not-allowed; color: #888; }
         .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
         #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; font-family: monospace; }
-
         .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; }
         .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; cursor: pointer; }
         .notepad-item input { width: 15px; height: 15px; cursor: pointer; }
@@ -37,7 +32,6 @@
     </style>
 </head>
 <body>
-
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
         <div id="setup-step">
@@ -92,7 +86,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // FIXED: Removed the period from "Mr Burns" to prevent Firebase errors
     const characters = [
         { name: "Homer", color: "#ffd90f", startX: 2, startY: 2 },
         { name: "Moe", color: "#4dabf7", startX: 11, startY: 3 },
@@ -121,32 +114,14 @@
     function joinRoom() {
         const id = document.getElementById('room-id').value;
         if (!id) return;
-        updateStatus('connecting');
         roomPath = 'cluedo_rooms/' + id;
         document.getElementById('setup-step').style.display = 'none';
         document.getElementById('char-step').style.display = 'block';
-
-        db.ref(".info/connected").on("value", (snap) => {
-            updateStatus(snap.val() === true ? 'online' : 'offline');
-        });
-
         db.ref(roomPath).on('value', (snap) => {
             localState = snap.val() || {};
             renderLobby();
             if (localState.started) startGameUI();
         });
-    }
-
-    function updateStatus(status) {
-        let ind = document.getElementById('status-indicator');
-        if (!ind) {
-            ind = document.createElement('div');
-            ind.id = 'status-indicator';
-            ind.style = "position:fixed; top:10px; right:10px; padding:5px 10px; border-radius:20px; font-size:10px; font-weight:bold; z-index:4000; color:#000;";
-            document.body.appendChild(ind);
-        }
-        ind.style.background = status === 'online' ? "#2ecc71" : status === 'connecting' ? "#f1c40f" : "#e74c3c";
-        ind.textContent = status.toUpperCase();
     }
 
     function renderLobby() {
@@ -155,19 +130,19 @@
         characters.forEach(c => {
             const btn = document.createElement('button');
             btn.textContent = c.name;
-            btn.disabled = localState.players?.[c.name];
+            btn.disabled = !!(localState.players && localState.players[c.name]);
             btn.onclick = () => selectChar(c.name);
             area.appendChild(btn);
         });
 
         const playerCount = localState.players ? Object.keys(localState.players).length : 0;
-        document.getElementById('wait-msg').textContent = `${playerCount}/4 players joined.`;
+        document.getElementById('wait-msg').textContent = `${playerCount} players joined.`;
         
-        // FIXED: Enabled starting with at least 2 players
+        // FIXED: Show start button to any player once 2+ have joined
         if (playerCount >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
-            startBtn.textContent = "HOST: START GAME";
-            startBtn.style.background = "green"; startBtn.style.color = "white";
+            startBtn.textContent = "START GAME NOW";
+            startBtn.style.background = "#2ecc71";
             startBtn.onclick = hostInit;
             area.appendChild(startBtn);
         }
@@ -176,7 +151,6 @@
     function selectChar(name) {
         myChar = name;
         db.ref(roomPath + '/players/' + name).set({ eliminated: false });
-        document.getElementById('char-step').innerHTML = `<h3>You are ${name}.</h3><p>Waiting for host...</p>`;
     }
 
     function hostInit() {
@@ -185,7 +159,6 @@
             .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
         cards.sort(() => Math.random() - 0.5);
 
-        // FIXED: Distribute all cards evenly among active players
         let hands = {};
         const activePlayers = Object.keys(localState.players);
         activePlayers.forEach(p => hands[p] = []);
@@ -193,8 +166,8 @@
             hands[activePlayers[idx % activePlayers.length]].push(card);
         });
 
-        let firstTurnIndex = 0;
-        while (!localState.players[characters[firstTurnIndex].name]) firstTurnIndex++;
+        // Find the index of the first character actually picked by a player
+        let firstTurnIndex = characters.findIndex(c => localState.players[c.name]);
 
         db.ref(roomPath).update({
             started: true,
@@ -210,21 +183,6 @@
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         setupDropdowns(); renderBoard(); renderSidebar(); renderNotebook();
-    }
-
-    function renderNotebook() {
-        const container = document.getElementById('notebook-container');
-        const categories = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
-        let html = "";
-        categories.forEach(cat => {
-            html += `<div class="notepad-category">${cat.title}</div>`;
-            cat.items.forEach(item => {
-                const storageKey = `note-${roomPath}-${myChar}-${item}`;
-                const isChecked = localStorage.getItem(storageKey) === 'true' ? 'checked' : '';
-                html += `<div class="notepad-item"><input type="checkbox" id="note-${item}" ${isChecked} onclick="localStorage.setItem('${storageKey}', this.checked)"><label for="note-${item}">${item}</label></div>`;
-            });
-        });
-        container.innerHTML = html;
     }
 
     function renderBoard() {
@@ -280,17 +238,9 @@
         }
     }
 
-    function makeSuggestion() {
-        const pos = localState.positions[myChar];
-        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        if (!r) return alert("You must be in a room!");
-        addLog(`${myChar} suggested ${document.getElementById('guess-suspect').value} with the ${document.getElementById('guess-weapon').value} in the ${r}.`);
-    }
-
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
-        // FIXED: Logic to skip characters not in the game or eliminated
         while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
             next = (next + 1) % 4;
         }
@@ -298,10 +248,19 @@
         hasMovedThisTurn = false; document.getElementById('dice-val').textContent = "?";
     }
 
-    function addLog(msg) {
-        const newLogs = [...(localState.logs || []), msg];
-        if (newLogs.length > 10) newLogs.shift();
-        db.ref(roomPath + '/logs').set(newLogs);
+    function renderNotebook() {
+        const container = document.getElementById('notebook-container');
+        const categories = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
+        let html = "";
+        categories.forEach(cat => {
+            html += `<div class="notepad-category">${cat.title}</div>`;
+            cat.items.forEach(item => {
+                const storageKey = `note-${roomPath}-${myChar}-${item}`;
+                const isChecked = localStorage.getItem(storageKey) === 'true' ? 'checked' : '';
+                html += `<div class="notepad-item"><input type="checkbox" id="note-${item}" ${isChecked} onclick="localStorage.setItem('${storageKey}', this.checked)"><label for="note-${item}">${item}</label></div>`;
+            });
+        });
+        container.innerHTML = html;
     }
 
     function setupDropdowns() {
@@ -310,6 +269,13 @@
         if (s.options.length > 0) return;
         gameData.suspects.forEach(i => s.innerHTML += `<option>${i}</option>`);
         gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
+    }
+
+    function makeSuggestion() {
+        const pos = localState.positions[myChar];
+        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
+        if (!r) return alert("You must be in a room!");
+        addLog(`${myChar} suggested ${document.getElementById('guess-suspect').value} in the ${r}.`);
     }
 
     function makeAccusation() {
@@ -326,9 +292,16 @@
             endTurn();
         }
     }
+
+    function addLog(msg) {
+        const newLogs = [...(localState.logs || []), msg];
+        if (newLogs.length > 10) newLogs.shift();
+        db.ref(roomPath + '/logs').set(newLogs);
+    }
 </script>
 </body>
 </html>
+
 
 
 
