@@ -9,21 +9,26 @@
     <style>
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
+        
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
         input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; }
+        
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
         .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
         .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
+        
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
         button:disabled { background: #555; cursor: not-allowed; color: #888; }
         .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
         #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; font-family: monospace; }
+
         .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; }
         .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; cursor: pointer; }
         .notepad-item input { width: 15px; height: 15px; cursor: pointer; }
@@ -32,6 +37,7 @@
     </style>
 </head>
 <body>
+
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
         <div id="setup-step">
@@ -86,11 +92,12 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // FIXED: Character names (no period for Mr Burns) and added image references
     const characters = [
-        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2 },
-        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3 },
-        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2 },
-        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12 }
+        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, img: 'homer.png' },
+        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3, img: 'moe.png' },
+        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2, img: 'duffman.png' },
+        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12, img: 'burns.png' }
     ];
 
     const gameData = {
@@ -127,7 +134,6 @@
     function renderLobby() {
         const area = document.getElementById('char-btns');
         area.innerHTML = "";
-        
         characters.forEach(c => {
             const btn = document.createElement('button');
             btn.textContent = c.name;
@@ -136,17 +142,10 @@
             btn.onclick = () => selectChar(c.name);
             area.appendChild(btn);
         });
-
-        if (myChar !== "") {
-            document.getElementById('lobby-instruction').textContent = "You are: " + myChar;
-        }
-
+        if (myChar !== "") document.getElementById('lobby-instruction').textContent = "You are: " + myChar;
         const activePlayers = localState.players ? Object.keys(localState.players) : [];
-        const playerCount = activePlayers.length;
-        document.getElementById('wait-msg').textContent = `${playerCount} players joined.`;
-        
-        // Show start button if at least 2 players have joined and you have picked a character
-        if (playerCount >= 2 && !localState.started && myChar !== "") {
+        document.getElementById('wait-msg').textContent = `${activePlayers.length} players joined.`;
+        if (activePlayers.length >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
             startBtn.textContent = "START GAME NOW";
             startBtn.style.background = "#2ecc71";
@@ -166,21 +165,13 @@
         let cards = [...gameData.suspects, ...gameData.weapons, ...gameData.rooms]
             .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
         cards.sort(() => Math.random() - 0.5);
-
         let hands = {};
         const activePlayers = Object.keys(localState.players);
         activePlayers.forEach(p => hands[p] = []);
-        cards.forEach((card, idx) => {
-            hands[activePlayers[idx % activePlayers.length]].push(card);
-        });
-
+        cards.forEach((card, idx) => hands[activePlayers[idx % activePlayers.length]].push(card));
         let firstTurnIndex = characters.findIndex(c => localState.players && localState.players[c.name]);
-
         db.ref(roomPath).update({
-            started: true,
-            turn: firstTurnIndex,
-            solution: solution,
-            hands: hands,
+            started: true, turn: firstTurnIndex, solution: solution, hands: hands,
             positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
             logs: ["Game Started!"]
         });
@@ -209,12 +200,15 @@
         document.querySelectorAll('.player-token').forEach(t => t.remove());
         characters.forEach(c => {
             const pos = localState.positions?.[c.name];
-            if (!pos) return;
+            if (!pos || !localState.players?.[c.name]) return;
             const token = document.createElement('div');
-            token.className = 'player-token' + (localState.players?.[c.name]?.eliminated ? ' eliminated' : '');
+            token.className = 'player-token' + (localState.players[c.name].eliminated ? ' eliminated' : '');
             token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
             token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
-            token.style.background = c.color;
+            // FIXED: Applied images to tokens
+            token.style.backgroundImage = `url('${c.img}')`;
+            token.style.backgroundSize = "cover";
+            token.style.backgroundColor = c.color;
             document.getElementById('board-wrapper').appendChild(token);
         });
     }
@@ -224,6 +218,7 @@
         const activePlayer = characters[localState.turn].name;
         const isMyTurn = activePlayer === myChar;
         document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activePlayer}'s Turn`;
+        // FIXED: Dice logic
         document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
         document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
         document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
@@ -245,11 +240,25 @@
         }
     }
 
+    // FIXED: Added Suggestion function
+    function makeSuggestion() {
+        if (characters[localState.turn].name !== myChar) return alert("Not your turn!");
+        const pos = localState.positions[myChar];
+        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
+        if (!r) return alert("You must be in a room!");
+        const s = document.getElementById('guess-suspect').value;
+        const w = document.getElementById('guess-weapon').value;
+        addLog(`${myChar} suggests: ${s} with the ${w} in the ${r}`);
+        if (localState.positions[s]) db.ref(roomPath + '/positions/' + s).set({ x: pos.x, y: pos.y });
+    }
+
+    // FIXED: Handle skipping missing/eliminated players
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
         while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
             next = (next + 1) % 4;
+            if (next === localState.turn) break;
         }
         db.ref(roomPath).update({ turn: next });
         hasMovedThisTurn = false; document.getElementById('dice-val').textContent = "?";
@@ -257,14 +266,14 @@
 
     function renderNotebook() {
         const container = document.getElementById('notebook-container');
-        const categories = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
+        const cats = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
         let html = "";
-        categories.forEach(cat => {
+        cats.forEach(cat => {
             html += `<div class="notepad-category">${cat.title}</div>`;
             cat.items.forEach(item => {
-                const storageKey = `note-${roomPath}-${myChar}-${item}`;
-                const isChecked = localStorage.getItem(storageKey) === 'true' ? 'checked' : '';
-                html += `<div class="notepad-item"><input type="checkbox" id="note-${item}" ${isChecked} onclick="localStorage.setItem('${storageKey}', this.checked)"><label for="note-${item}">${item}</label></div>`;
+                const key = `note-${roomPath}-${myChar}-${item}`;
+                const chk = localStorage.getItem(key) === 'true' ? 'checked' : '';
+                html += `<div class="notepad-item"><input type="checkbox" ${chk} onclick="localStorage.setItem('${key}', this.checked)"><label>${item}</label></div>`;
             });
         });
         container.innerHTML = html;
@@ -276,13 +285,6 @@
         if (s.options.length > 0) return;
         gameData.suspects.forEach(i => s.innerHTML += `<option>${i}</option>`);
         gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
-    }
-
-    function makeSuggestion() {
-        const pos = localState.positions[myChar];
-        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        if (!r) return alert("You must be in a room!");
-        addLog(`${myChar} suggested ${document.getElementById('guess-suspect').value} in the ${r}.`);
     }
 
     function makeAccusation() {
@@ -308,7 +310,5 @@
 </script>
 </body>
 </html>
-
-
 
 
