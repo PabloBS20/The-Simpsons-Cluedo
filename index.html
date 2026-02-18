@@ -96,16 +96,16 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- 2. GAME CONSTANTS ---
+   // --- 2. GAME CONSTANTS ---
     const characters = [
         { name: "Homer", color: "#ffd90f", startX: 2, startY: 2 },
         { name: "Moe", color: "#4dabf7", startX: 11, startY: 3 },
         { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2 },
-        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12 }
+        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12 } // <-- Removed the period here
     ];
 
     const gameData = {
-        suspects: ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"],
+        suspects: ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"], // <-- Removed the period here
         weapons: ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"],
         rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
     };
@@ -365,4 +365,5 @@
 </script>
 </body>
 </html>
+
 
