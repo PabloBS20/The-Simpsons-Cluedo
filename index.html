@@ -13,16 +13,32 @@
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
         input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; color: #000; }
         #game-container { display: none; width: 100vw; height: 100vh; }
-        #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
-        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
-        .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
         
-        /* New Room Label Style */
-        .room-label { position: absolute; color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: bold; pointer-events: none; text-transform: uppercase; text-shadow: 1px 1px 2px #000; text-align: center; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,0.2); }
+        #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; z-index: 1; }
+        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 10; }
+        .cell { border: 0.1px solid rgba(255,255,255,0.03); cursor: pointer; }
+        
+        /* FIXED ROOM LABELS: Added z-index and better visibility */
+        #room-labels-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+        .room-label { 
+            position: absolute; 
+            color: #fff; 
+            font-size: 0.7rem; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            text-shadow: 2px 2px 4px #000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: rgba(0, 0, 0, 0.3); /* Subtle background to make text readable */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-sizing: border-box;
+            padding: 5px;
+        }
 
-        #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
+        #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; z-index: 50; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; box-shadow: 0 0 10px rgba(0,0,0,0.5); z-index: 10; }
+        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; box-shadow: 0 0 10px rgba(0,0,0,0.8); z-index: 20; }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
         button:disabled { background: #555; cursor: not-allowed; color: #888; }
@@ -50,7 +66,8 @@
 
     <div id="game-container">
         <div id="board-wrapper">
-            <div id="room-labels-layer"></div> <div id="grid-overlay"></div>
+            <div id="room-labels-layer"></div> 
+            <div id="grid-overlay"></div>
         </div>
         <div id="ui-sidebar">
             <h2 id="turn-indicator">Waiting...</h2>
@@ -182,7 +199,6 @@
         drawRoomLabels();
     }
 
-    // NEW: Function to draw room names on the board
     function drawRoomLabels() {
         const layer = document.getElementById('room-labels-layer');
         layer.innerHTML = "";
@@ -190,10 +206,10 @@
             const label = document.createElement('div');
             label.className = 'room-label';
             label.textContent = z.name;
-            label.style.left = `calc(${z.x1} * (100% / 24))`;
-            label.style.top = `calc(${z.y1} * (100% / 25))`;
-            label.style.width = `calc(${(z.x2 - z.x1 + 1)} * (100% / 24))`;
-            label.style.height = `calc(${(z.y2 - z.y1 + 1)} * (100% / 25))`;
+            label.style.left = (z.x1 * (100 / 24)) + "%";
+            label.style.top = (z.y1 * (100 / 25)) + "%";
+            label.style.width = ((z.x2 - z.x1 + 1) * (100 / 24)) + "%";
+            label.style.height = ((z.y2 - z.y1 + 1) * (100 / 25)) + "%";
             layer.appendChild(label);
         });
     }
@@ -224,7 +240,6 @@
             token.style.backgroundColor = c.color;
             document.getElementById('board-wrapper').appendChild(token);
             
-            // Update UI if it's the local player moving
             if (c.name === myChar) {
                 const room = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2);
                 document.getElementById('current-room-display').textContent = "Location: " + (room ? room.name : "Hallway");
@@ -327,4 +342,5 @@
 </script>
 </body>
 </html>
+
 
