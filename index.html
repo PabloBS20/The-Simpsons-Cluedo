@@ -10,12 +10,10 @@
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
         
-        /* Lobby Styles */
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
         input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; }
         
-        /* Game Styles */
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
@@ -31,7 +29,6 @@
         .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
         #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; font-family: monospace; }
 
-        /* Notebook Styles */
         .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; }
         .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; cursor: pointer; }
         .notepad-item input { width: 15px; height: 15px; cursor: pointer; }
@@ -87,7 +84,6 @@
     </div>
 
 <script>
-    // --- 1. FIREBASE CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyCxN2d4RZyt9Q5JOKZxT7pJ5NBirAoxEn4",
         databaseURL: "https://cluedo-821bd-default-rtdb.firebaseio.com",
@@ -96,16 +92,16 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-   // --- 2. GAME CONSTANTS ---
+    // FIXED: Removed the period from "Mr Burns" to prevent Firebase errors
     const characters = [
         { name: "Homer", color: "#ffd90f", startX: 2, startY: 2 },
         { name: "Moe", color: "#4dabf7", startX: 11, startY: 3 },
         { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2 },
-        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12 } // <-- Removed the period here
+        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12 }
     ];
 
     const gameData = {
-        suspects: ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"], // <-- Removed the period here
+        suspects: ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"],
         weapons: ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"],
         rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
     };
@@ -120,14 +116,8 @@
         { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
     ];
 
-    // --- 3. STATE ---
-    let roomPath = "";
-    let myChar = "";
-    let localState = {};
-    let currentRoll = 0;
-    let hasMovedThisTurn = false;
+    let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false;
 
-    // --- 4. JOIN LOGIC ---
     function joinRoom() {
         const id = document.getElementById('room-id').value;
         if (!id) return;
@@ -173,11 +163,11 @@
         const playerCount = localState.players ? Object.keys(localState.players).length : 0;
         document.getElementById('wait-msg').textContent = `${playerCount}/4 players joined.`;
         
+        // FIXED: Enabled starting with at least 2 players
         if (playerCount >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
             startBtn.textContent = "HOST: START GAME";
-            startBtn.style.background = "green";
-            startBtn.style.color = "white";
+            startBtn.style.background = "green"; startBtn.style.color = "white";
             startBtn.onclick = hostInit;
             area.appendChild(startBtn);
         }
@@ -189,33 +179,22 @@
         document.getElementById('char-step').innerHTML = `<h3>You are ${name}.</h3><p>Waiting for host...</p>`;
     }
 
-    // --- 5. HOST INITIALIZATION ---
     function hostInit() {
-        // Create solution
         const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
-        
-        // Setup deck minus the solution cards
         let cards = [...gameData.suspects, ...gameData.weapons, ...gameData.rooms]
             .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
-        
-        // Shuffle deck
         cards.sort(() => Math.random() - 0.5);
 
-        // Distribute cards evenly among ONLY the players who joined
+        // FIXED: Distribute all cards evenly among active players
         let hands = {};
         const activePlayers = Object.keys(localState.players);
-        activePlayers.forEach(pName => hands[pName] = []);
-        
+        activePlayers.forEach(p => hands[p] = []);
         cards.forEach((card, idx) => {
-            const pName = activePlayers[idx % activePlayers.length];
-            hands[pName].push(card);
+            hands[activePlayers[idx % activePlayers.length]].push(card);
         });
 
-        // Find the first player who actually joined to take the first turn
         let firstTurnIndex = 0;
-        while (!localState.players[characters[firstTurnIndex].name]) {
-            firstTurnIndex++;
-        }
+        while (!localState.players[characters[firstTurnIndex].name]) firstTurnIndex++;
 
         db.ref(roomPath).update({
             started: true,
@@ -227,14 +206,10 @@
         });
     }
 
-    // --- 6. GAMEPLAY ---
     function startGameUI() {
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
-        setupDropdowns();
-        renderBoard();
-        renderSidebar();
-        renderNotebook();
+        setupDropdowns(); renderBoard(); renderSidebar(); renderNotebook();
     }
 
     function renderNotebook() {
@@ -285,12 +260,8 @@
         const isMyTurn = activePlayer === myChar;
         document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activePlayer}'s Turn`;
         document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
-        
-        const myHand = localState.hands?.[myChar] || [];
-        document.getElementById('my-hand').innerHTML = myHand.map(c => `<span class="card">${c}</span>`).join('');
-        
-        const log = document.getElementById('log');
-        log.innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
+        document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
+        document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
 
     function rollDice() {
@@ -302,12 +273,10 @@
     function handleMove(x, y) {
         if (currentRoll === 0 || characters[localState.turn].name !== myChar) return;
         const pos = localState.positions[myChar];
-        const dist = Math.abs(pos.x - x) + Math.abs(pos.y - y);
-        if (dist <= currentRoll) {
+        if (Math.abs(pos.x - x) + Math.abs(pos.y - y) <= currentRoll) {
             db.ref(roomPath + '/positions/' + myChar).set({ x, y });
             addLog(`${myChar} moved.`);
-            currentRoll = 0;
-            hasMovedThisTurn = true;
+            currentRoll = 0; hasMovedThisTurn = true;
         }
     }
 
@@ -315,23 +284,18 @@
         const pos = localState.positions[myChar];
         const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
         if (!r) return alert("You must be in a room!");
-        const s = document.getElementById('guess-suspect').value;
-        const w = document.getElementById('guess-weapon').value;
-        addLog(`${myChar} suggested ${s} with the ${w} in the ${r}.`);
+        addLog(`${myChar} suggested ${document.getElementById('guess-suspect').value} with the ${document.getElementById('guess-weapon').value} in the ${r}.`);
     }
 
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
-        let next = (localState.turn + 1) % characters.length;
-        
-        // Skip players who didn't join OR are eliminated
+        let next = (localState.turn + 1) % 4;
+        // FIXED: Logic to skip characters not in the game or eliminated
         while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
-            next = (next + 1) % characters.length;
+            next = (next + 1) % 4;
         }
-        
         db.ref(roomPath).update({ turn: next });
-        hasMovedThisTurn = false;
-        document.getElementById('dice-val').textContent = "?";
+        hasMovedThisTurn = false; document.getElementById('dice-val').textContent = "?";
     }
 
     function addLog(msg) {
@@ -365,5 +329,6 @@
 </script>
 </body>
 </html>
+
 
 
