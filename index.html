@@ -18,22 +18,21 @@
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 10; }
         .cell { border: 0.1px solid rgba(255,255,255,0.03); cursor: pointer; }
         
-        /* FIXED ROOM LABELS: Added z-index and better visibility */
+        /* ROOM LABELS: Black text with a light background for clarity */
         #room-labels-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
         .room-label { 
             position: absolute; 
-            color: #fff; 
-            font-size: 0.7rem; 
-            font-weight: bold; 
+            color: #000; /* Text changed to Black */
+            font-size: 0.75rem; 
+            font-weight: 800; 
             text-transform: uppercase; 
-            text-shadow: 2px 2px 4px #000; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            background: rgba(0, 0, 0, 0.3); /* Subtle background to make text readable */
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.4); /* Light background for contrast */
             box-sizing: border-box;
-            padding: 5px;
+            padding: 2px;
+            text-align: center;
         }
 
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; z-index: 50; }
@@ -121,14 +120,21 @@
         rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
     };
 
+    /* UPDATED: Coordinates adjusted to fit the provided tablero.jpg */
     const roomZones = [
-        { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 }, { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
-        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
-        { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 }, { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
-        { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 }, { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
-        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
-        { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 }, { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
-        { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
+        { name: "Cafeteria", x1: 0, y1: 0, x2: 4, y2: 6 },
+        { name: "Lab", x1: 6, y1: 0, x2: 11, y2: 5 },
+        { name: "Art's class", x1: 13, y1: 0, x2: 17, y2: 5 },
+        { name: "2ºA", x1: 19, y1: 0, x2: 23, y2: 6 },
+        { name: "Teacher's lounge", x1: 0, y1: 8, x2: 7, y2: 16 },
+        { name: "ICT room", x1: 13, y1: 8, x2: 17, y2: 14 },
+        { name: "Gym", x1: 19, y1: 9, x2: 23, y2: 15 },
+        { name: "Library", x1: 0, y1: 18, x2: 4, y2: 24 },
+        { name: "English department", x1: 6, y1: 18, x2: 12, y2: 24 },
+        { name: "Hall", x1: 14, y1: 17, x2: 23, y2: 24 },
+        { name: "Bathroom", x1: 15, y1: 9, x2: 17, y2: 12 }, /* Small interior room example */
+        { name: "Cinema room", x1: 9, y1: 8, x2: 11, y2: 12 }, /* Center room example */
+        { name: "Annex", x1: 21, y1: 10, x2: 23, y2: 14 }
     ];
 
     let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false;
