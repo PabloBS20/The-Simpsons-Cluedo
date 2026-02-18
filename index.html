@@ -10,12 +10,12 @@
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
         
-        /* Lobby Styles */
+        /* Lobby & Setup */
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
-        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; }
+        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; margin-bottom: 10px; }
         
-        /* Game Styles */
+        /* Game Layout */
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
@@ -23,20 +23,21 @@
         
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; }
+        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
         
-        button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
-        #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; }
-
-        /* Notepad Styles */
+        button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
+        button:disabled { background: #555; cursor: not-allowed; color: #888; }
+        
+        /* Notebook & Cards */
         .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; }
         .notepad-item { display: flex; align-items: center; gap: 8px; padding: 3px; cursor: pointer; }
-        .notepad-item input { width: 15px; height: 15px; cursor: pointer; }
+        .notepad-item input { width: 15px; height: 15px; }
         .notepad-item input:checked + label { text-decoration: line-through; color: #888; }
         .notepad-category { grid-column: span 2; color: var(--accent-color); border-bottom: 1px solid #444; margin-top: 10px; font-size: 0.9em; text-transform: uppercase; }
+        
+        .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
+        #log { height: 100px; background: #000; overflow-y: auto; font-size: 0.8em; padding: 5px; border: 1px solid #333; color: #0f0; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -44,13 +45,14 @@
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
         <div id="setup-step">
-            <input type="text" id="room-id" placeholder="Enter Class Code (2A)">
+            <input type="text" id="room-id" placeholder="Enter Class Code (e.g. 2A)">
             <button onclick="joinRoom()">Enter Room</button>
         </div>
         <div id="char-step" style="display:none;">
             <h3>Pick your character:</h3>
             <div id="char-btns" class="btn-group"></div>
             <p id="wait-msg" style="margin-top:20px;"></p>
+            <button onclick="forceResetRoom()" style="background:#e74c3c; color:white; margin-top:30px; font-size:10px;">Teacher: Reset Room</button>
         </div>
     </div>
 
@@ -67,9 +69,9 @@
 
             <div class="section">
                 <h3>Suggestion</h3>
-                <select id="guess-suspect"></select>
-                <select id="guess-weapon"></select>
-                <button id="suggest-btn" onclick="makeSuggestion()">Make Suggestion</button>
+                <select id="guess-suspect" style="width:100%; margin-bottom:5px;"></select>
+                <select id="guess-weapon" style="width:100%; margin-bottom:5px;"></select>
+                <button id="suggest-btn" onclick="makeSuggestion()" style="width:100%;">Make Suggestion</button>
             </div>
 
             <div class="section">
@@ -83,8 +85,8 @@
             </div>
 
             <div class="section">
-                <button style="background:red; color:white;" onclick="makeAccusation()">FINAL ACCUSATION</button>
-                <button onclick="endTurn()" style="background:#444; color:white; margin-top:5px;">End Turn</button>
+                <button style="background:red; color:white; width:100%;" onclick="makeAccusation()">FINAL ACCUSATION</button>
+                <button onclick="endTurn()" style="background:#444; color:white; width:100%; margin-top:5px;">End Turn</button>
             </div>
 
             <div id="log"></div>
@@ -103,10 +105,10 @@
 
     // --- 2. GAME CONSTANTS ---
     const characters = [
-        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, img: 'homer.png' },
-        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3, img: 'moe.png' },
-        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2, img: 'duffman.png' },
-        { name: "Mr. Burns", color: "#51cf66", startX: 3, startY: 12, img: 'burns.png' }
+        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2 },
+        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3 },
+        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2 },
+        { name: "MrBurns", color: "#51cf66", startX: 3, startY: 12, displayName: "Mr. Burns" }
     ];
 
     const gameData = {
@@ -116,18 +118,12 @@
     };
 
     const roomZones = [
-        { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 },
-        { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
-        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 },
-        { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
-        { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 },
-        { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
-        { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 },
-        { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
-        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 },
-        { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
-        { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 },
-        { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
+        { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 }, { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
+        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
+        { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 }, { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
+        { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 }, { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
+        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
+        { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 }, { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
         { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
     ];
 
@@ -138,16 +134,15 @@
     let currentRoll = 0;
     let hasMovedThisTurn = false;
 
-    // --- 4. JOIN LOGIC ---
+    // --- 4. CONNECTION & LOBBY ---
     function joinRoom() {
         const id = document.getElementById('room-id').value;
         if (!id) return;
-        
-        updateStatus('connecting');
         roomPath = 'cluedo_rooms/' + id;
         document.getElementById('setup-step').style.display = 'none';
         document.getElementById('char-step').style.display = 'block';
 
+        updateStatus('connecting');
         db.ref(".info/connected").on("value", (snap) => {
             updateStatus(snap.val() === true ? 'online' : 'offline');
         });
@@ -159,25 +154,14 @@
         });
     }
 
-    function updateStatus(status) {
-        let indicator = document.getElementById('status-indicator');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.id = 'status-indicator';
-            indicator.style = "position:fixed; top:10px; right:10px; padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; z-index:4000;";
-            document.body.appendChild(indicator);
-        }
-        indicator.style.background = status === 'online' ? "#2ecc71" : (status === 'connecting' ? "#f1c40f" : "#e74c3c");
-        indicator.textContent = status.toUpperCase();
-    }
-
     function renderLobby() {
         const area = document.getElementById('char-btns');
         area.innerHTML = "";
         characters.forEach(c => {
             const btn = document.createElement('button');
-            btn.textContent = c.name;
-            btn.disabled = localState.players && localState.players[c.name];
+            btn.textContent = c.displayName || c.name;
+            const isTaken = localState.players && localState.players[c.name];
+            btn.disabled = isTaken;
             btn.onclick = () => selectChar(c.name);
             area.appendChild(btn);
         });
@@ -187,8 +171,8 @@
         
         if (playerCount >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
-            startBtn.textContent = "HOST: START GAME";
-            startBtn.style.background = "green";
+            startBtn.textContent = "START GAME";
+            startBtn.style.background = "#2ecc71";
             startBtn.style.marginLeft = "10px";
             startBtn.onclick = hostInit;
             area.appendChild(startBtn);
@@ -197,21 +181,40 @@
 
     function selectChar(name) {
         myChar = name;
-        db.ref(roomPath + '/players/' + name).set({ x: 0, y: 0, eliminated: false });
-        document.getElementById('char-step').innerHTML = `<h3>You are ${name}. Waiting for host...</h3>`;
+        db.ref(roomPath + '/players/' + name).set({ online: true, eliminated: false });
+        document.getElementById('char-step').innerHTML = `<h3>You are ${name}.</h3><p>Waiting for host to start...</p>`;
     }
 
-    // --- 5. HOST INITIALIZATION ---
+    function forceResetRoom() {
+        if(confirm("This will kick all players and reset this room. Continue?")) {
+            db.ref(roomPath).remove();
+            location.reload();
+        }
+    }
+
+    function updateStatus(status) {
+        let indicator = document.getElementById('status-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'status-indicator';
+            indicator.style = "position:fixed; top:10px; right:10px; padding:5px 10px; border-radius:20px; font-size:10px; font-weight:bold; z-index:4000; color:#000;";
+            document.body.appendChild(indicator);
+        }
+        indicator.style.background = status === 'online' ? "#2ecc71" : "#e74c3c";
+        indicator.textContent = status.toUpperCase();
+    }
+
+    // --- 5. HOST LOGIC ---
     function hostInit() {
         const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
-        let cards = [...gameData.suspects, ...gameData.weapons, ...gameData.rooms]
+        let allCards = [...gameData.suspects, ...gameData.weapons, ...gameData.rooms]
             .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
-        cards.sort(() => Math.random() - 0.5);
+        allCards.sort(() => Math.random() - 0.5);
 
         let hands = {};
-        const activePlayers = Object.keys(localState.players);
-        activePlayers.forEach((name, idx) => {
-            hands[name] = cards.slice(idx * 4, (idx + 1) * 4);
+        const playerNames = Object.keys(localState.players);
+        playerNames.forEach((name, idx) => {
+            hands[name] = allCards.slice(idx * 4, (idx + 1) * 4);
         });
 
         db.ref(roomPath).update({
@@ -220,11 +223,11 @@
             solution: solution,
             hands: hands,
             positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
-            logs: ["Game Started!"]
+            logs: ["Investigation began!"]
         });
     }
 
-    // --- 6. GAMEPLAY ---
+    // --- 6. INTERFACE & GAMEPLAY ---
     function startGameUI() {
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
@@ -236,22 +239,20 @@
 
     function renderNotebook() {
         const container = document.getElementById('notebook-container');
-        const categories = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
-        let html = "";
-        categories.forEach(cat => {
-            html += `<div class="notepad-category">${cat.title}</div>`;
-            cat.items.forEach(item => {
-                const storageKey = `note-${roomPath}-${myChar}-${item}`;
-                const isChecked = localStorage.getItem(storageKey) === 'true' ? 'checked' : '';
-                html += `<div class="notepad-item"><input type="checkbox" id="note-${item}" ${isChecked} onclick="saveNote('${item}', this.checked)"><label for="note-${item}">${item}</label></div>`;
+        const sections = [{ t: "Suspects", i: gameData.suspects }, { t: "Weapons", i: gameData.weapons }, { t: "Rooms", i: gameData.rooms }];
+        let h = "";
+        sections.forEach(s => {
+            h += `<div class="notepad-category">${s.t}</div>`;
+            s.i.forEach(item => {
+                const key = `note-${roomPath}-${myChar}-${item}`;
+                const checked = localStorage.getItem(key) === 'true' ? 'checked' : '';
+                h += `<div class="notepad-item"><input type="checkbox" id="n-${item}" ${checked} onclick="saveNote('${item}', this.checked)"><label for="n-${item}">${item}</label></div>`;
             });
         });
-        container.innerHTML = html;
+        container.innerHTML = h;
     }
 
-    function saveNote(item, isChecked) {
-        localStorage.setItem(`note-${roomPath}-${myChar}-${item}`, isChecked);
-    }
+    function saveNote(item, val) { localStorage.setItem(`note-${roomPath}-${myChar}-${item}`, val); }
 
     function renderBoard() {
         const grid = document.getElementById('grid-overlay');
@@ -259,7 +260,7 @@
         for (let i = 0; i < 24 * 25; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            const x = i % 24; const y = Math.floor(i / 24);
+            const x = i % 24, y = Math.floor(i / 24);
             cell.onclick = () => handleMove(x, y);
             grid.appendChild(cell);
         }
@@ -270,36 +271,36 @@
         document.querySelectorAll('.player-token').forEach(t => t.remove());
         characters.forEach(c => {
             if (!localState.positions || !localState.positions[c.name]) return;
-            const pos = localState.positions[c.name];
-            const token = document.createElement('div');
-            token.className = 'player-token' + (localState.players[c.name]?.eliminated ? ' eliminated' : '');
-            token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
-            token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
-            token.style.background = c.color;
-            document.getElementById('board-wrapper').appendChild(token);
+            const p = localState.positions[c.name];
+            const t = document.createElement('div');
+            t.className = 'player-token' + (localState.players[c.name]?.eliminated ? ' eliminated' : '');
+            t.style.left = `calc(${(p.x + 0.5)} * (100% / 24))`;
+            t.style.top = `calc(${(p.y + 0.5)} * (100% / 25))`;
+            t.style.background = c.color;
+            document.getElementById('board-wrapper').appendChild(t);
         });
     }
 
     function renderSidebar() {
-        const isMyTurn = characters[localState.turn].name === myChar;
-        document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${characters[localState.turn].name}'s Turn`;
+        const activeName = characters[localState.turn].name;
+        const isMyTurn = activeName === myChar;
+        document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activeName}'s Turn`;
         document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
-        const myHand = localState.hands[myChar] || [];
-        document.getElementById('my-hand').innerHTML = myHand.map(c => `<span class="card">${c}</span>`).join('');
-        const log = document.getElementById('log');
-        log.innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
+        const hand = localState.hands[myChar] || [];
+        document.getElementById('my-hand').innerHTML = hand.map(c => `<span class="card">${c}</span>`).join('');
+        document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
 
     function rollDice() {
-        currentRoll = (Math.floor(Math.random() * 6) + 1) + (Math.floor(Math.random() * 6) + 1);
+        currentRoll = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
         document.getElementById('dice-val').textContent = currentRoll;
         document.getElementById('roll-btn').disabled = true;
     }
 
     function handleMove(x, y) {
         if (currentRoll === 0 || characters[localState.turn].name !== myChar) return;
-        const pos = localState.positions[myChar];
-        if (Math.abs(pos.x - x) + Math.abs(pos.y - y) <= currentRoll) {
+        const p = localState.positions[myChar];
+        if (Math.abs(p.x - x) + Math.abs(p.y - y) <= currentRoll) {
             db.ref(roomPath + '/positions/' + myChar).set({ x, y });
             addLog(`${myChar} moved.`);
             currentRoll = 0;
@@ -310,16 +311,16 @@
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
-        while (localState.players[characters[next].name]?.eliminated) { next = (next + 1) % 4; }
+        while (localState.players[characters[next].name]?.eliminated) next = (next + 1) % 4;
         db.ref(roomPath).update({ turn: next });
         hasMovedThisTurn = false;
         document.getElementById('dice-val').textContent = "?";
     }
 
-    function addLog(msg) {
-        const newLogs = [...(localState.logs || []), msg];
-        if (newLogs.length > 10) newLogs.shift();
-        db.ref(roomPath + '/logs').set(newLogs);
+    function addLog(m) {
+        const l = [...(localState.logs || []), m];
+        if (l.length > 10) l.shift();
+        db.ref(roomPath + '/logs').set(l);
     }
 
     function setupDropdowns() {
@@ -330,20 +331,18 @@
     }
 
     function getRoomAt(x, y) {
-        const room = roomZones.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2);
-        return room ? room.name : null;
+        return roomZones.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2)?.name;
     }
 
     function makeAccusation() {
-        const pos = localState.positions[myChar];
-        const r = getRoomAt(pos.x, pos.y);
+        const p = localState.positions[myChar], r = getRoomAt(p.x, p.y);
         if (!r) return alert("Must be in a room!");
         const s = document.getElementById('guess-suspect').value, w = document.getElementById('guess-weapon').value;
         if (s === localState.solution.suspect && w === localState.solution.weapon && r === localState.solution.room) {
-            alert("WINNER!");
+            alert("VICTORY!");
             db.ref(roomPath).update({ started: false, logs: [`${myChar} WON!`] });
         } else {
-            alert("WRONG! Eliminated.");
+            alert("WRONG! You are eliminated.");
             db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
             endTurn();
         }
