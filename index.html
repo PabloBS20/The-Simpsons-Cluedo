@@ -18,7 +18,7 @@
         .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
         #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; }
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; }
+        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         .eliminated { opacity: 0.3; filter: grayscale(1); }
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
         button:disabled { background: #555; cursor: not-allowed; color: #888; }
@@ -34,7 +34,7 @@
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
         <div id="setup-step">
-            <input type="text" id="room-id" placeholder="Enter Room Name (e.g. 2A)">
+            <input type="text" id="room-id" placeholder="Enter Room Name">
             <button onclick="joinRoom()">Enter Room</button>
         </div>
         <div id="char-step" style="display:none;">
@@ -70,7 +70,7 @@
             </div>
             <div class="section">
                 <button style="background:red; color:white; width:100%" onclick="makeAccusation()">FINAL ACCUSATION</button>
-                <button onclick="endTurn()" style="background:#444; color:white; margin-top:5px; width:100%">End Turn</button>
+                <button id="end-turn-btn" onclick="endTurn()" style="background:#444; color:white; margin-top:5px; width:100%">End Turn</button>
             </div>
             <div id="log"></div>
         </div>
@@ -118,8 +118,11 @@
         document.getElementById('char-step').style.display = 'block';
         db.ref(roomPath).on('value', (snap) => {
             localState = snap.val() || {};
-            renderLobby();
-            if (localState.started) startGameUI();
+            if (localState.started) {
+                startGameUI();
+            } else {
+                renderLobby();
+            }
         });
     }
 
@@ -136,7 +139,7 @@
         });
         if (myChar !== "") document.getElementById('lobby-instruction').textContent = "Selected: " + myChar;
         const active = localState.players ? Object.keys(localState.players) : [];
-        document.getElementById('wait-msg').textContent = `${active.length} Players in Lobby`;
+        document.getElementById('wait-msg').textContent = `${active.length} Players joined.`;
         if (active.length >= 2 && !localState.started && myChar !== "") {
             const startBtn = document.createElement('button');
             startBtn.textContent = "START GAME";
@@ -159,9 +162,10 @@
             .filter(c => c !== solution.suspect && c !== solution.weapon && c !== solution.room);
         cards.sort(() => Math.random() - 0.5);
         let hands = {};
-        const activePlayers = Object.keys(localState.players);
-        activePlayers.forEach(p => hands[p] = []);
-        cards.forEach((card, idx) => hands[activePlayers[idx % activePlayers.length]].push(card));
+        const players = Object.keys(localState.players);
+        players.forEach(p => hands[p] = []);
+        cards.forEach((card, idx) => hands[players[idx % players.length]].push(card));
+        
         let firstTurn = characters.findIndex(c => localState.players[c.name]);
         db.ref(roomPath).update({
             started: true, turn: firstTurn, solution: solution, hands: hands,
@@ -210,6 +214,7 @@
         const isMyTurn = activeChar === myChar;
         document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activeChar}'s Turn`;
         document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
+        document.getElementById('end-turn-btn').disabled = !isMyTurn;
         document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
         document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
@@ -231,18 +236,20 @@
     }
 
     function makeSuggestion() {
+        if (characters[localState.turn].name !== myChar) return alert("Not your turn!");
         const pos = localState.positions[myChar];
         const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
         if (!r) return alert("Must be in a room!");
         const s = document.getElementById('guess-suspect').value;
         const w = document.getElementById('guess-weapon').value;
-        addLog(`${myChar} suggests: ${s} with the ${w} in the ${r}`);
+        addLog(`${myChar} suggests: ${s} / ${w} / ${r}`);
         if (localState.positions[s]) db.ref(roomPath + '/positions/' + s).set({ x: pos.x, y: pos.y });
     }
 
     function endTurn() {
         if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
+        // Logic to skip characters that are NOT human players OR are eliminated
         while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
             next = (next + 1) % 4;
             if (next === localState.turn) break;
