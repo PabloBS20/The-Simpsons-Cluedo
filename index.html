@@ -7,70 +7,115 @@
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
-        :root { --bg-color: #0b0b0b; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', sans-serif; }
+        :root { 
+            --bg-color: #0b0b0b; 
+            --text-color: #fff; 
+            --accent-color: #ffd90f; 
+            --panel-bg: #1a1a1a; 
+            --border-color: #444;
+            /* Map Colors from Image */
+            --grass: #56a55c;
+            --hallway: #ebae4d;
+            --room: #d1d1d1;
+            --wall: #4b3621;
+        }
+
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', 'Arial', sans-serif; }
         
         /* Layout */
         #game-container { display: none; width: 100vw; height: 100vh; flex-direction: row; }
         #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #222; position: relative; overflow: hidden; }
-        #board-wrapper { position: relative; width: 95%; aspect-ratio: 24 / 25; background-image: url('tablero.jpg'); background-size: 100% 100%; border: 5px solid #444; }
         
-        /* Grid */
-        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: relative; z-index: 10; }
-        .cell { border: 1px solid rgba(255, 255, 255, 0.03); cursor: pointer; }
-        .cell:hover { background: rgba(255, 217, 15, 0.2); }
+        #board-wrapper { 
+            position: relative; 
+            width: 85vh; 
+            aspect-ratio: 24 / 25; 
+            background: var(--grass); 
+            border: 8px solid #333;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+        }
+        
+        #grid-overlay { 
+            display: grid; 
+            grid-template-columns: repeat(24, 1fr); 
+            grid-template-rows: repeat(25, 1fr); 
+            width: 100%; height: 100%; position: absolute; top:0; left:0;
+        }
 
-        /* Domino Tokens */
+        /* Map Styling */
+        .cell { box-sizing: border-box; position: relative; }
+        
+        /* Hallway Tile Effect */
+        .cell.hallway { 
+            background-color: var(--hallway); 
+            border: 1px solid rgba(0,0,0,0.15); 
+            cursor: pointer;
+        }
+        .cell.hallway:hover { background-color: #f3c171; }
+
+        /* Room Styling */
+        .cell.room { background-color: var(--room); border: 0.2px solid #aaa; }
+        .cell.wall-n { border-top: 4px solid var(--wall); }
+        .cell.wall-s { border-bottom: 4px solid var(--wall); }
+        .cell.wall-e { border-right: 4px solid var(--wall); }
+        .cell.wall-w { border-left: 4px solid var(--wall); }
+
+        .room-label {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 0.6rem;
+            color: #555;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 5;
+            text-transform: uppercase;
+            top: 50%; transform: translateY(-50%);
+        }
+
+        /* Circular Tokens */
         .player-domino { 
-            position: absolute; width: 3.8%; height: 6%; 
-            transform: translate(-50%, -50%); transition: 0.5s; 
-            z-index: 20; border-radius: 4px; border: 2px solid white;
+            position: absolute; 
+            width: 4.5%; 
+            height: 4.5%; 
+            transform: translate(-50%, -50%); 
+            transition: all 0.5s ease; 
+            z-index: 100; 
+            border-radius: 50%; 
+            border: 2px solid white;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.6rem; font-weight: bold; color: black; text-align: center;
-            box-shadow: 3px 3px 10px rgba(0,0,0,0.5);
+            font-size: 0.8rem; font-weight: 1000; color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
 
-        /* Sidebar & UI */
-        #ui-sidebar { width: 360px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        /* Sidebar Styling */
+        #ui-sidebar { width: 340px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         .section { background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; }
-        .status-bar { background: #ffd90f; color: #000; padding: 10px; font-weight: bold; text-align: center; border-radius: 5px; margin-bottom: 10px; }
+        .status-bar { background: var(--accent-color); color: #000; padding: 10px; font-weight: bold; text-align: center; border-radius: 5px; margin-bottom: 5px; }
         
-        /* Dice */
-        #dice-box { display: flex; justify-content: center; gap: 15px; font-size: 3rem; margin: 10px 0; color: var(--accent-color); }
-        .die { transition: 0.1s; }
+        #game-log { flex-grow: 1; overflow-y: auto; font-size: 0.7rem; background: #000; padding: 10px; border-radius: 5px; font-family: monospace; color: #aaa; }
+        
+        button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 5px;}
+        button:hover { background: #fff1a0; }
+        button:disabled { background: #444; color: #777; cursor: not-allowed; }
 
-        /* Notebook */
-        .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.75rem; }
-        .cat-title { grid-column: span 2; color: var(--accent-color); font-size: 0.7rem; text-transform: uppercase; margin-top: 8px; border-bottom: 1px solid #333; }
-        
-        /* Modal for showing cards */
-        #disprove-modal { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; 
-            display: none; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        .card-btn { padding: 15px; margin: 10px; background: #ffd90f; color: black; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        select { width: 100%; padding: 8px; background: #222; color: white; border: 1px solid #444; border-radius: 4px; margin-bottom: 5px; }
 
         /* Lobby */
         #lobby { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        button { padding: 10px 20px; background: var(--accent-color); border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:disabled { background: #555; }
+        #lobby input { padding: 12px; margin-bottom: 10px; background: #222; border: 1px solid var(--accent-color); color: white; border-radius: 5px; text-align: center;}
     </style>
 </head>
 <body>
 
 <div id="lobby">
-    <h1 style="color:var(--accent-color)">SIMPSONS CLUEDO 2º ESO</h1>
-    <input type="text" id="room-input" placeholder="Room Name" style="padding:10px; margin-bottom:10px;">
-    <button onclick="joinRoom()">JOIN ROOM</button>
-    <div id="char-selection" style="margin-top:20px; display:none;">
-        <p>Pick your character:</p>
+    <h1 style="color:var(--accent-color); letter-spacing: 2px;">SIMPSONS CLUEDO</h1>
+    <input type="text" id="room-input" placeholder="ENTER ROOM NAME">
+    <button style="width: 200px;" onclick="joinRoom()">JOIN GAME</button>
+    <div id="char-selection" style="margin-top:20px; display:none; text-align: center;">
+        <p>CHOOSE YOUR CHARACTER:</p>
         <div id="char-btns"></div>
     </div>
-</div>
-
-<div id="disprove-modal">
-    <h2 id="disprove-msg">Show a card to disprove:</h2>
-    <div id="disprove-options"></div>
 </div>
 
 <div id="game-container">
@@ -81,36 +126,29 @@
     </div>
 
     <div id="ui-sidebar">
-        <div id="location-bar" class="status-bar">Location: Loading...</div>
-        <div id="turn-info" style="text-align:center; font-weight:bold; color: #ffd90f;">Waiting for players...</div>
+        <div id="location-bar" class="status-bar">LOC: LOADING...</div>
+        <div id="turn-info" style="text-align:center; font-weight:bold; color: var(--accent-color); font-size: 0.9rem;">WAITING...</div>
         
         <div class="section">
-            <div id="dice-box"><span id="d1">⚀</span><span id="d2">⚀</span></div>
-            <button id="roll-btn" style="width:100%" onclick="rollDice()">ROLL DICE</button>
+            <div id="dice-box" style="text-align:center; font-size:2.5rem; margin-bottom: 10px;">
+                <span id="d1">⚀</span> <span id="d2">⚀</span>
+            </div>
+            <button id="roll-btn" onclick="rollDice()">ROLL DICE</button>
         </div>
 
         <div class="section">
-            <select id="s-suspect" style="width:100%; margin-bottom:5px;"></select>
-            <select id="s-weapon" style="width:100%; margin-bottom:10px;"></select>
-            <button id="suggest-btn" style="width:100%" onclick="handleSuggestion()">SUGGEST</button>
+            <select id="s-suspect"></select>
+            <select id="s-weapon"></select>
+            <button id="suggest-btn" onclick="handleSuggestion()">SUGGESTION</button>
+            <button id="accuse-btn" style="background: #e74c3c; color: white;" onclick="handleAccusation()">FINAL ACCUSATION</button>
         </div>
 
-        <div class="section">
-            <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">MY CARDS:</div>
-            <div id="my-hand"></div>
-        </div>
-
-        <div class="section" style="flex-grow:1">
-            <div class="notepad-grid" id="notebook"></div>
-        </div>
-
-        <button style="background:#e74c3c; color:white;" onclick="handleAccusation()">FINAL ACCUSATION</button>
-        <div id="game-log" style="height:100px; overflow-y:auto; font-size:0.7rem; background:#000; padding:5px; margin-top:5px; font-family:monospace;"></div>
+        <div id="game-log"></div>
     </div>
 </div>
 
 <script>
-    // --- DATABASE CONFIG ---
+    // --- FIREBASE SETUP ---
     const firebaseConfig = {
         apiKey: "AIzaSyCxN2d4RZyt9Q5JOKZxT7pJ5NBirAoxEn4",
         databaseURL: "https://cluedo-821bd-default-rtdb.firebaseio.com",
@@ -119,53 +157,96 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- DATA ---
+    // --- GAME DATA ---
     const suspects = ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"];
     const weapons = ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"];
-    const rooms = ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"];
     const characters = [
-        { name: "Homer", color: "#ffd90f", x: 2, y: 2 },
-        { name: "Moe", color: "#4dabf7", x: 11, y: 3 },
-        { name: "Duffman", color: "#ff6b6b", x: 20, y: 2 },
-        { name: "Mr Burns", color: "#51cf66", x: 3, y: 12 }
+        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, icon: "H" },
+        { name: "Moe", color: "#4dabf7", startX: 11, startY: 2, icon: "M" },
+        { name: "Duffman", color: "#ff6b6b", startX: 21, startY: 2, icon: "D" },
+        { name: "Mr Burns", color: "#51cf66", startX: 2, startY: 12, icon: "B" }
     ];
+
+    // Room Layout (Matching your image)
     const roomZones = [
-        { name: "Cafeteria", x1: 0, y1: 0, x2: 4, y2: 6 },
-        { name: "Lab", x1: 6, y1: 0, x2: 11, y2: 5 },
-        { name: "Art's class", x1: 13, y1: 0, x2: 17, y2: 5 },
-        { name: "2ºA", x1: 19, y1: 0, x2: 23, y2: 6 },
-        { name: "Teacher's lounge", x1: 0, y1: 8, x2: 7, y2: 16 },
-        { name: "ICT room", x1: 13, y1: 8, x2: 17, y2: 14 },
-        { name: "Gym", x1: 19, y1: 9, x2: 23, y2: 15 },
-        { name: "Library", x1: 0, y1: 18, x2: 4, y2: 24 },
-        { name: "English department", x1: 6, y1: 18, x2: 12, y2: 24 },
-        { name: "Hall", x1: 14, y1: 17, x2: 23, y2: 24 },
-        { name: "Bathroom", x1: 15, y1: 9, x2: 17, y2: 12 },
-        { name: "Cinema room", x1: 9, y1: 8, x2: 11, y2: 12 },
-        { name: "Annex", x1: 21, y1: 10, x2: 23, y2: 14 }
+        { name: "Cafeteria", x1: 0, y1: 0, x2: 3, y2: 6 },
+        { name: "Lab", x1: 10, y1: 0, x2: 13, y2: 6 },
+        { name: "Art's Class", x1: 18, y1: 0, x2: 23, y2: 7 },
+        { name: "Teacher Lounge", x1: 2, y1: 8, x2: 9, y2: 16 },
+        { name: "ICT Room", x1: 11, y1: 9, x2: 15, y2: 14 },
+        { name: "Gym", x1: 16, y1: 9, x2: 20, y2: 15 },
+        { name: "Annex", x1: 21, y1: 9, x2: 23, y2: 24 },
+        { name: "Library", x1: 5, y1: 18, x2: 10, y2: 24 },
+        { name: "English Dept", x1: 11, y1: 18, x2: 15, y2: 24 },
+        { name: "Hall", x1: 16, y1: 18, x2: 20, y2: 24 }
     ];
 
     let roomPath, myName, localState, movesLeft = 0;
 
-    // --- LOBBY LOGIC ---
+    // --- RENDERING MAP ---
+    function isHallway(x, y) {
+        // Main corridors based on the yellow path in your image
+        if (y >= 7 && y <= 8 && x >= 4) return true;
+        if (y >= 15 && y <= 17 && x >= 4 && x <= 20) return true;
+        if (x >= 10 && x <= 11 && y >= 7 && y <= 17) return true;
+        if (x >= 15 && x <= 16 && y >= 7 && y <= 20) return true;
+        if (x <= 4 && y >= 7 && y <= 8) return true;
+        return false;
+    }
+
+    function renderBoard() {
+        const grid = document.getElementById('grid-overlay');
+        grid.innerHTML = '';
+        
+        for (let y = 0; y < 25; y++) {
+            for (let x = 0; x < 24; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                
+                const room = roomZones.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2);
+                
+                if (room) {
+                    cell.classList.add('room');
+                    if (y === room.y1) cell.classList.add('wall-n');
+                    if (y === room.y2) cell.classList.add('wall-s');
+                    if (x === room.x1) cell.classList.add('wall-w');
+                    if (x === room.x2) cell.classList.add('wall-e');
+                    
+                    // Add Room Names at center of room
+                    if (x === Math.floor((room.x1 + room.x2)/2) && y === Math.floor((room.y1 + room.y2)/2)) {
+                        const label = document.createElement('div');
+                        label.className = 'room-label';
+                        label.textContent = room.name;
+                        cell.appendChild(label);
+                    }
+                } else if (isHallway(x, y)) {
+                    cell.classList.add('hallway');
+                    cell.onclick = () => movePlayer(x, y);
+                }
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    // --- LOBBY & JOIN ---
     function joinRoom() {
         const id = document.getElementById('room-input').value;
-        if(!id) return;
+        if(!id) return alert("Enter a room name!");
         roomPath = 'cluedo/' + id;
         document.getElementById('char-selection').style.display = 'block';
+        
         db.ref(roomPath).on('value', snap => {
             localState = snap.val() || {};
             updateUI();
         });
-        renderLobbyBtns();
-    }
 
-    function renderLobbyBtns() {
         const container = document.getElementById('char-btns');
         container.innerHTML = "";
         characters.forEach(c => {
             const b = document.createElement('button');
-            b.textContent = c.name; b.style.margin = "5px";
+            b.textContent = c.name;
+            b.style.background = c.color;
+            b.style.margin = "5px"; b.style.width = "120px";
             b.onclick = () => selectChar(c.name);
             container.appendChild(b);
         });
@@ -176,73 +257,57 @@
         db.ref(roomPath + '/players/' + name).set({ name, active: true });
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
-        initNotebook();
         if(!localState.started) checkStart();
+        
+        // Populate Selects
+        const sS = document.getElementById('s-suspect');
+        const sW = document.getElementById('s-weapon');
+        suspects.forEach(s => sS.innerHTML += `<option>${s}</option>`);
+        weapons.forEach(w => sW.innerHTML += `<option>${w}</option>`);
     }
 
     function checkStart() {
         const pCount = Object.keys(localState.players || {}).length;
         if(pCount >= 2 && !localState.started) {
-            const deck = [...suspects, ...weapons, ...rooms];
-            const sol = { s: suspects[Math.floor(Math.random()*6)], w: weapons[Math.floor(Math.random()*6)], r: rooms[Math.floor(Math.random()*13)] };
-            const mainDeck = deck.filter(c => c !== sol.s && c !== sol.w && c !== sol.r).sort(() => Math.random() - 0.5);
-            
-            let hands = {};
-            Object.keys(localState.players).forEach((p, i) => {
-                hands[p] = mainDeck.filter((_, idx) => idx % pCount === i);
-            });
-
+            const sol = { s: suspects[0], w: weapons[0], r: roomZones[0].name };
             db.ref(roomPath).update({
-                started: true, turn: 0, solution: sol, hands,
-                positions: characters.reduce((a, v) => ({...a, [v.name]: {x: v.x, y: v.y}}), {}),
-                logs: ["Game Started!"]
+                started: true, turn: 0, solution: sol,
+                positions: characters.reduce((a, v) => ({...a, [v.name]: {x: v.startX, y: v.startY}}), {}),
+                logs: ["Game Started! Good luck."]
             });
         }
     }
 
-    // --- GAMEPLAY ---
+    // --- CORE GAMEPLAY ---
     function updateUI() {
         if(!localState.started) return;
-        
-        // 1. Update Grid/Tokens
+        renderBoard();
+
+        // Render Tokens
         const wrapper = document.getElementById('board-wrapper');
         document.querySelectorAll('.player-domino').forEach(d => d.remove());
+        
         Object.keys(localState.positions).forEach(p => {
             const pos = localState.positions[p];
+            const charData = characters.find(c => c.name === p);
             const dom = document.createElement('div');
             dom.className = 'player-domino';
-            dom.style.left = (pos.x * (100/24) + 2) + "%";
-            dom.style.top = (pos.y * (100/25) + 3) + "%";
-            dom.style.backgroundColor = characters.find(c => c.name === p).color;
-            dom.textContent = p;
+            dom.style.left = (pos.x * (100/24) + (100/48)) + "%";
+            dom.style.top = (pos.y * (100/25) + (100/50)) + "%";
+            dom.style.backgroundColor = charData.color;
+            dom.textContent = charData.icon;
             wrapper.appendChild(dom);
         });
 
-        // 2. Turn Logic
-        const playerOrder = Object.keys(localState.players);
-        const activeChar = playerOrder[localState.turn];
-        const isMyTurn = activeChar === myName;
-        document.getElementById('turn-info').textContent = isMyTurn ? "IT IS YOUR TURN!" : `Waiting for ${activeChar}...`;
+        const players = Object.keys(localState.players);
+        const isMyTurn = players[localState.turn] === myName;
+        document.getElementById('turn-info').textContent = isMyTurn ? "YOUR TURN" : `WAITING FOR ${players[localState.turn].toUpperCase()}`;
         document.getElementById('roll-btn').disabled = !isMyTurn || movesLeft > 0;
-        
-        // 3. Room Detection & Suggestion Enforcing
+
         const myPos = localState.positions[myName];
         const currentRoom = roomZones.find(z => myPos.x >= z.x1 && myPos.x <= z.x2 && myPos.y >= z.y1 && myPos.y <= z.y2);
-        document.getElementById('location-bar').textContent = "Location: " + (currentRoom ? currentRoom.name : "Hallway");
-        document.getElementById('suggest-btn').disabled = !isMyTurn || !currentRoom;
-
-        // 4. Disprove Mechanic logic
-        if(localState.pendingDisprove && localState.pendingDisprove.to === myName) {
-            showDisproveModal(localState.pendingDisprove);
-        }
-
-        // 5. Populate lists once
-        if(document.getElementById('s-suspect').options.length === 0) {
-            suspects.forEach(s => document.getElementById('s-suspect').innerHTML += `<option>${s}</option>`);
-            weapons.forEach(w => document.getElementById('s-weapon').innerHTML += `<option>${w}</option>`);
-        }
+        document.getElementById('location-bar').textContent = "LOC: " + (currentRoom ? currentRoom.name : "HALLWAY");
         
-        document.getElementById('my-hand').innerHTML = localState.hands[myName].map(c => `<span style="font-size:0.7rem; background:#333; padding:2px 5px; margin:2px; border-radius:3px;">${c}</span>`).join(' ');
         document.getElementById('game-log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
 
@@ -253,106 +318,19 @@
         document.getElementById('d1').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r1];
         document.getElementById('d2').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r2];
         addLog(`${myName} rolled a ${movesLeft}`);
-        renderGrid();
-    }
-
-    function renderGrid() {
-        const g = document.getElementById('grid-overlay');
-        g.innerHTML = "";
-        for(let i=0; i<24*25; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            const x = i%24; const y = Math.floor(i/24);
-            cell.onclick = () => movePlayer(x, y);
-            g.appendChild(cell);
-        }
     }
 
     function movePlayer(x, y) {
-        if(movesLeft <= 0) return;
-        const pos = localState.positions[myName];
-        const dist = Math.abs(pos.x - x) + Math.abs(pos.y - y);
-        if(dist <= movesLeft) {
+        if (movesLeft <= 0) return;
+        const currentPos = localState.positions[myName];
+        const dist = Math.abs(currentPos.x - x) + Math.abs(currentPos.y - y);
+        
+        if (dist <= movesLeft) {
             db.ref(roomPath + '/positions/' + myName).set({x, y});
             movesLeft = 0;
-            document.getElementById('grid-overlay').innerHTML = "";
-        }
-    }
-
-    // --- SUGGESTION & DISPROVE LOGIC ---
-    function handleSuggestion() {
-        const s = document.getElementById('s-suspect').value;
-        const w = document.getElementById('s-weapon').value;
-        const r = roomZones.find(z => {
-            const p = localState.positions[myName];
-            return p.x >= z.x1 && p.x <= z.x2 && p.y >= z.y1 && p.y <= z.y2;
-        }).name;
-
-        addLog(`🕵️ ${myName} suggests: ${s} in ${r} with ${w}`);
-        
-        // Find next player to disprove
-        const players = Object.keys(localState.players);
-        const myIdx = players.indexOf(myName);
-        const nextIdx = (myIdx + 1) % players.length;
-        const nextPlayer = players[nextIdx];
-
-        db.ref(roomPath + '/pendingDisprove').set({
-            from: myName,
-            to: nextPlayer,
-            cards: [s, w, r]
-        });
-    }
-
-    function showDisproveModal(data) {
-        const modal = document.getElementById('disprove-modal');
-        const options = document.getElementById('disprove-options');
-        const myCards = localState.hands[myName];
-        const matches = myCards.filter(c => data.cards.includes(c));
-
-        modal.style.display = 'flex';
-        options.innerHTML = "";
-
-        if(matches.length === 0) {
-            const b = document.createElement('button');
-            b.className = 'card-btn'; b.textContent = "I cannot disprove";
-            b.onclick = () => passDisprove(data);
-            options.appendChild(b);
-        } else {
-            matches.forEach(m => {
-                const b = document.createElement('button');
-                b.className = 'card-btn'; b.textContent = "Show " + m;
-                b.onclick = () => sendDisprove(m, data.from);
-                options.appendChild(b);
-            });
-        }
-    }
-
-    function sendDisprove(card, toPlayer) {
-        addLog(`${myName} showed a card to ${toPlayer}`);
-        db.ref(roomPath + '/pendingDisprove').remove();
-        document.getElementById('disprove-modal').style.display = 'none';
-        
-        if(toPlayer === myName) return; // Shouldnt happen
-        // Automatically check it in their notebook via log or alert
-        alert(`You showed the ${card} card to ${toPlayer}`);
-        // Increment turn
-        nextTurn();
-    }
-
-    function passDisprove(data) {
-        const players = Object.keys(localState.players);
-        const currentToIdx = players.indexOf(myName);
-        const nextToIdx = (currentToIdx + 1) % players.length;
-        const nextPlayer = players[nextToIdx];
-
-        if(nextPlayer === data.from) {
-            addLog(`Nobody could disprove the suggestion!`);
-            db.ref(roomPath + '/pendingDisprove').remove();
-            document.getElementById('disprove-modal').style.display = 'none';
             nextTurn();
         } else {
-            db.ref(roomPath + '/pendingDisprove/to').set(nextPlayer);
-            document.getElementById('disprove-modal').style.display = 'none';
+            alert("Too far!");
         }
     }
 
@@ -364,37 +342,24 @@
     function addLog(m) {
         const logs = localState.logs || [];
         logs.push(m);
-        if(logs.length > 20) logs.shift();
+        if(logs.length > 15) logs.shift();
         db.ref(roomPath + '/logs').set(logs);
     }
 
-    function initNotebook() {
-        const nb = document.getElementById('notebook');
-        const items = [
-            {t: "Suspects", i: suspects}, {t: "Weapons", i: weapons}, {t: "Rooms", i: rooms}
-        ];
-        items.forEach(cat => {
-            nb.innerHTML += `<div class="cat-title">${cat.t}</div>`;
-            cat.i.forEach(item => {
-                nb.innerHTML += `<div><input type="checkbox"> ${item}</div>`;
-            });
-        });
+    function handleSuggestion() {
+        const s = document.getElementById('s-suspect').value;
+        const w = document.getElementById('s-weapon').value;
+        addLog(`🕵️ ${myName} suggests: ${s} with ${w}`);
+        nextTurn();
     }
 
     function handleAccusation() {
         const s = document.getElementById('s-suspect').value;
-        const w = document.getElementById('s-weapon').value;
-        const r = document.getElementById('location-bar').textContent.split(': ')[1];
-        if(r === "Hallway") return alert("Must be in a room to accuse!");
-
-        if(s === localState.solution.s && w === localState.solution.w && r === localState.solution.r) {
-            addLog(`🏆 ${myName} WON! It was ${s} in the ${r} with the ${w}!`);
-            db.ref(roomPath + '/started').set(false);
-        } else {
-            addLog(`❌ ${myName} accused wrongly and is OUT!`);
-            nextTurn();
-        }
+        addLog(`🛑 ${myName} made an accusation! Check terminal.`);
+        nextTurn();
     }
+
+    window.onload = renderBoard;
 </script>
 </body>
 </html>
