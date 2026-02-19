@@ -11,12 +11,12 @@
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', sans-serif; }
         
         /* Layout */
-        #game-container { display: none; width: 80vw; height: 80vh; flex-direction: row; }
+        #game-container { display: none; width: 100vw; height: 100vh; flex-direction: row; }
         #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #222; position: relative; overflow: hidden; }
         #board-wrapper { position: relative; width: 95%; aspect-ratio: 24 / 25; background-image: url('tablero.jpg'); background-size: 100% 100%; border: 5px solid #444; }
         
         /* Grid */
-        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 80%; height: 80%; position: absolute; z-index: 10; }
+        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: relative; z-index: 10; }
         .cell { border: 1px solid rgba(255, 255, 255, 0.03); cursor: pointer; }
         .cell:hover { background: rgba(255, 217, 15, 0.2); }
 
@@ -398,6 +398,7 @@
 </script>
 </body>
 </html>
+
 
 
 
