@@ -3,152 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simpsons Cluedo - 2º ESO Edition</title>
+    <title>Simpsons Cluedo Online</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
-        :root { 
-            --bg-color: #0b0b0b; 
-            --text-color: #fff; 
-            --accent-color: #ffd90f; 
-            --panel-bg: #1a1a1a; 
-            --border-color: #444;
-            /* Map Colors from Image */
-            --grass: #56a55c;
-            --hallway: #ebae4d;
-            --room: #d1d1d1;
-            --wall: #4b3621;
-        }
-
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', 'Arial', sans-serif; }
+        :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
+        #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
+        input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; color: #000; }
+        #game-container { display: none; width: 100vw; height: 100vh; }
+        #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
+        #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
+        .cell { border: 0.1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        #ui-sidebar { width: 350px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; overflow-y: auto; display: flex; flex-direction: column; }
+        .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; }
         
-        /* Layout */
-        #game-container { display: none; width: 100vw; height: 100vh; flex-direction: row; }
-        #board-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #222; position: relative; overflow: hidden; }
+        .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; box-shadow: 0 0 10px rgba(0,0,0,0.5); z-index: 10;}
+        .weapon-token { width: 25px; height: 25px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 5px; background: #555; border: 1px solid #aaa; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 0 5px rgba(0,0,0,0.8); z-index: 5;}
+        .eliminated { opacity: 0.3; filter: grayscale(1); }
         
-        #board-wrapper { 
-            position: relative; 
-            width: 85vh; 
-            aspect-ratio: 24 / 25; 
-            background: var(--grass); 
-            border: 8px solid #333;
-            box-shadow: 0 0 40px rgba(0,0,0,0.8);
-        }
+        button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
+        button:disabled { background: #555; cursor: not-allowed; color: #888; }
+        .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
+        #log { flex-grow: 1; min-height: 80px; background: #000; overflow-y: auto; font-size: 0.75em; padding: 5px; border: 1px solid #333; color: #0f0; }
         
-        #grid-overlay { 
-            display: grid; 
-            grid-template-columns: repeat(24, 1fr); 
-            grid-template-rows: repeat(25, 1fr); 
-            width: 100%; height: 100%; position: absolute; top:0; left:0;
-        }
+        /* Updated Dice Styles */
+        .dice-container { display: flex; justify-content: center; gap: 15px; margin-bottom: 10px; font-size: 3rem; }
+        .dice { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: white; color: black; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); line-height: 1; }
 
-        /* Map Styling */
-        .cell { box-sizing: border-box; position: relative; }
-        
-        /* Hallway Tile Effect */
-        .cell.hallway { 
-            background-color: var(--hallway); 
-            border: 1px solid rgba(0,0,0,0.15); 
-            cursor: pointer;
-        }
-        .cell.hallway:hover { background-color: #f3c171; }
-
-        /* Room Styling */
-        .cell.room { background-color: var(--room); border: 0.2px solid #aaa; }
-        .cell.wall-n { border-top: 4px solid var(--wall); }
-        .cell.wall-s { border-bottom: 4px solid var(--wall); }
-        .cell.wall-e { border-right: 4px solid var(--wall); }
-        .cell.wall-w { border-left: 4px solid var(--wall); }
-
-        .room-label {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            font-size: 0.6rem;
-            color: #555;
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 5;
-            text-transform: uppercase;
-            top: 50%; transform: translateY(-50%);
-        }
-
-        /* Circular Tokens */
-        .player-domino { 
-            position: absolute; 
-            width: 4.5%; 
-            height: 4.5%; 
-            transform: translate(-50%, -50%); 
-            transition: all 0.5s ease; 
-            z-index: 100; 
-            border-radius: 50%; 
-            border: 2px solid white;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.8rem; font-weight: 1000; color: #333;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        }
-
-        /* Sidebar Styling */
-        #ui-sidebar { width: 340px; background: var(--panel-bg); border-left: 2px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .section { background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; }
-        .status-bar { background: var(--accent-color); color: #000; padding: 10px; font-weight: bold; text-align: center; border-radius: 5px; margin-bottom: 5px; }
-        
-        #game-log { flex-grow: 1; overflow-y: auto; font-size: 0.7rem; background: #000; padding: 10px; border-radius: 5px; font-family: monospace; color: #aaa; }
-        
-        button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; margin-top: 5px;}
-        button:hover { background: #fff1a0; }
-        button:disabled { background: #444; color: #777; cursor: not-allowed; }
-
-        select { width: 100%; padding: 8px; background: #222; color: white; border: 1px solid #444; border-radius: 4px; margin-bottom: 5px; }
-
-        /* Lobby */
-        #lobby { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #lobby input { padding: 12px; margin-bottom: 10px; background: #222; border: 1px solid var(--accent-color); color: white; border-radius: 5px; text-align: center;}
+        #notebook-container { max-height: 180px; overflow-y: auto; padding-right: 5px; }
+        .notepad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; font-size: 0.75em; }
+        .notepad-item { cursor: pointer; padding: 3px 5px; border-radius: 3px; background: #222; transition: 0.2s; }
+        .notepad-item:hover { background: #333; }
+        .notepad-item.crossed { text-decoration: line-through; color: #777; background: #111; }
+        .notepad-category { grid-column: span 2; color: var(--accent-color); border-bottom: 1px solid #444; margin-top: 5px; font-size: 0.85em; text-transform: uppercase; padding-bottom: 2px;}
     </style>
 </head>
 <body>
 
-<div id="lobby">
-    <h1 style="color:var(--accent-color); letter-spacing: 2px;">SIMPSONS CLUEDO</h1>
-    <input type="text" id="room-input" placeholder="ENTER ROOM NAME">
-    <button style="width: 200px;" onclick="joinRoom()">JOIN GAME</button>
-    <div id="char-selection" style="margin-top:20px; display:none; text-align: center;">
-        <p>CHOOSE YOUR CHARACTER:</p>
-        <div id="char-btns"></div>
-    </div>
-</div>
-
-<div id="game-container">
-    <div id="board-area">
-        <div id="board-wrapper">
-            <div id="grid-overlay"></div>
+    <div id="lobby-screen">
+        <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
+        <div id="setup-step">
+            <input type="text" id="room-id" placeholder="Enter Room Name">
+            <button onclick="joinRoom()">Enter Room</button>
+        </div>
+        <div id="char-step" style="display:none;">
+            <h3 id="lobby-instruction">Pick your character:</h3>
+            <div id="char-btns" class="btn-group"></div>
+            <p id="wait-msg" style="margin-top:20px;"></p>
+            <button onclick="db.ref(roomPath).remove(); location.reload();" style="background:#e74c3c; color:white; margin-top:30px; font-size:10px;">RESET ROOM</button>
         </div>
     </div>
 
-    <div id="ui-sidebar">
-        <div id="location-bar" class="status-bar">LOC: LOADING...</div>
-        <div id="turn-info" style="text-align:center; font-weight:bold; color: var(--accent-color); font-size: 0.9rem;">WAITING...</div>
-        
-        <div class="section">
-            <div id="dice-box" style="text-align:center; font-size:2.5rem; margin-bottom: 10px;">
-                <span id="d1">⚀</span> <span id="d2">⚀</span>
+    <div id="game-container">
+        <div id="board-wrapper"><div id="grid-overlay"></div></div>
+        <div id="ui-sidebar">
+            <h2 id="turn-indicator" style="margin-top:0;">Waiting...</h2>
+            <div class="section">
+                <h3 style="margin-top:0;">Movement</h3>
+                <div class="dice-container">
+                    <div id="die-1" class="dice">⚀</div>
+                    <div id="die-2" class="dice">⚀</div>
+                </div>
+                <button id="roll-btn" onclick="rollDice()" style="width:100%">Roll Dice</button>
             </div>
-            <button id="roll-btn" onclick="rollDice()">ROLL DICE</button>
+            <div class="section">
+                <h3 style="margin-top:0;">Suggestion</h3>
+                <select id="guess-suspect" style="width:100%; margin-bottom:5px;"></select>
+                <select id="guess-weapon" style="width:100%; margin-bottom:5px;"></select>
+                <button onclick="makeSuggestion()" style="width:100%">Make Suggestion</button>
+            </div>
+            <div class="section">
+                <h3 style="margin-top:0;">Detective Notebook</h3>
+                <div id="notebook-container" class="notepad-grid"></div>
+            </div>
+            <div class="section">
+                <h3 style="margin-top:0;">Your Hand</h3>
+                <div id="my-hand"></div>
+            </div>
+            <div class="section" style="margin-bottom: 5px;">
+                <button style="background:red; color:white; width:100%" onclick="makeAccusation()">FINAL ACCUSATION</button>
+                <button id="end-turn-btn" onclick="endTurn()" style="background:#444; color:white; margin-top:5px; width:100%">End Turn</button>
+            </div>
+            <div id="log"></div>
         </div>
-
-        <div class="section">
-            <select id="s-suspect"></select>
-            <select id="s-weapon"></select>
-            <button id="suggest-btn" onclick="handleSuggestion()">SUGGESTION</button>
-            <button id="accuse-btn" style="background: #e74c3c; color: white;" onclick="handleAccusation()">FINAL ACCUSATION</button>
-        </div>
-
-        <div id="game-log"></div>
     </div>
-</div>
 
 <script>
-    // --- FIREBASE SETUP ---
     const firebaseConfig = {
         apiKey: "AIzaSyCxN2d4RZyt9Q5JOKZxT7pJ5NBirAoxEn4",
         databaseURL: "https://cluedo-821bd-default-rtdb.firebaseio.com",
@@ -157,209 +99,293 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- GAME DATA ---
-    const suspects = ["Homer", "Moe", "Duffman", "Mr Burns", "Krusty", "Smithers"];
-    const weapons = ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"];
     const characters = [
-        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, icon: "H" },
-        { name: "Moe", color: "#4dabf7", startX: 11, startY: 2, icon: "M" },
-        { name: "Duffman", color: "#ff6b6b", startX: 21, startY: 2, icon: "D" },
-        { name: "Mr Burns", color: "#51cf66", startX: 2, startY: 12, icon: "B" }
+        { name: "Homer", color: "#ffd90f", startX: 2, startY: 2, img: 'homer.png' },
+        { name: "Moe", color: "#4dabf7", startX: 11, startY: 3, img: 'moe.png' },
+        { name: "Duffman", color: "#ff6b6b", startX: 20, startY: 2, img: 'duffman.png' },
+        { name: "Mr Burns", color: "#51cf66", startX: 3, startY: 12, img: 'burns.png' }
     ];
 
-    // Room Layout (Matching your image)
+    const gameData = {
+        suspects: ["Lenny", "Sideshow Bob", "Flanders", "Fat Tony", "Krusty", "Smithers"],
+        weapons: ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"],
+        rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
+    };
+
+    const diceFaces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+
     const roomZones = [
-        { name: "Cafeteria", x1: 0, y1: 0, x2: 3, y2: 6 },
-        { name: "Lab", x1: 10, y1: 0, x2: 13, y2: 6 },
-        { name: "Art's Class", x1: 18, y1: 0, x2: 23, y2: 7 },
-        { name: "Teacher Lounge", x1: 2, y1: 8, x2: 9, y2: 16 },
-        { name: "ICT Room", x1: 11, y1: 9, x2: 15, y2: 14 },
-        { name: "Gym", x1: 16, y1: 9, x2: 20, y2: 15 },
-        { name: "Annex", x1: 21, y1: 9, x2: 23, y2: 24 },
-        { name: "Library", x1: 5, y1: 18, x2: 10, y2: 24 },
-        { name: "English Dept", x1: 11, y1: 18, x2: 15, y2: 24 },
-        { name: "Hall", x1: 16, y1: 18, x2: 20, y2: 24 }
+        { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 }, { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
+        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
+        { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 }, { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
+        { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 }, { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
+        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
+        { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 }, { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
+        { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
     ];
 
-    let roomPath, myName, localState, movesLeft = 0;
+    let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false;
+    let lastAlertTimestamp = 0;
 
-    // --- RENDERING MAP ---
-    function isHallway(x, y) {
-        // Main corridors based on the yellow path in your image
-        if (y >= 7 && y <= 8 && x >= 4) return true;
-        if (y >= 15 && y <= 17 && x >= 4 && x <= 20) return true;
-        if (x >= 10 && x <= 11 && y >= 7 && y <= 17) return true;
-        if (x >= 15 && x <= 16 && y >= 7 && y <= 20) return true;
-        if (x <= 4 && y >= 7 && y <= 8) return true;
-        return false;
+    function joinRoom() {
+        const id = document.getElementById('room-id').value;
+        if (!id) return;
+        roomPath = 'cluedo_rooms/' + id;
+        document.getElementById('setup-step').style.display = 'none';
+        document.getElementById('char-step').style.display = 'block';
+        
+        db.ref(roomPath).on('value', (snap) => {
+            localState = snap.val() || {};
+            if (localState.latestAlert && localState.latestAlert.ts > lastAlertTimestamp) {
+                lastAlertTimestamp = localState.latestAlert.ts;
+                alert(localState.latestAlert.msg);
+            }
+            if (localState.started) { startGameUI(); } else { renderLobby(); }
+        });
+    }
+
+    function renderLobby() {
+        const area = document.getElementById('char-btns');
+        area.innerHTML = "";
+        characters.forEach(c => {
+            const btn = document.createElement('button');
+            btn.textContent = c.name;
+            const isTaken = localState.players && localState.players[c.name];
+            btn.disabled = isTaken || myChar !== "";
+            btn.onclick = () => selectChar(c.name);
+            area.appendChild(btn);
+        });
+        if (myChar !== "") document.getElementById('lobby-instruction').textContent = "Selected: " + myChar;
+        const active = localState.players ? Object.keys(localState.players) : [];
+        document.getElementById('wait-msg').textContent = `${active.length} Players joined.`;
+        if (active.length >= 2 && !localState.started && myChar !== "") {
+            const startBtn = document.createElement('button');
+            startBtn.textContent = "START GAME";
+            startBtn.style.background = "#2ecc71";
+            startBtn.style.display = "block";
+            startBtn.style.marginTop = "20px";
+            startBtn.onclick = hostInit;
+            area.appendChild(startBtn);
+        }
+    }
+
+    function selectChar(name) {
+        myChar = name;
+        db.ref(roomPath + '/players/' + name).set({ eliminated: false });
+    }
+
+    function hostInit() {
+        // STATIC SOLUTION as requested
+        const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
+        
+        // Categorized remaining cards
+        let sCards = gameData.suspects.filter(c => c !== solution.suspect).sort(() => Math.random() - 0.5);
+        let wCards = gameData.weapons.filter(c => c !== solution.weapon).sort(() => Math.random() - 0.5);
+        let rCards = gameData.rooms.filter(c => c !== solution.room).sort(() => Math.random() - 0.5);
+
+        let hands = {};
+        const players = Object.keys(localState.players);
+        players.forEach(p => hands[p] = []);
+
+        // REQUIREMENT: Give each player at least 1 character, 1 weapon, and 1 room
+        players.forEach(p => {
+            if(sCards.length > 0) hands[p].push(sCards.pop());
+            if(wCards.length > 0) hands[p].push(wCards.pop());
+            if(rCards.length > 0) hands[p].push(rCards.pop());
+        });
+
+        // Distribute remaining cards normally
+        let remaining = [...sCards, ...wCards, ...rCards].sort(() => Math.random() - 0.5);
+        remaining.forEach((card, idx) => hands[players[idx % players.length]].push(card));
+        
+        let weaponPositions = {};
+        const shuffledRooms = [...gameData.rooms].sort(() => Math.random() - 0.5);
+        gameData.weapons.forEach((w, idx) => {
+            const rName = shuffledRooms[idx];
+            const rZone = roomZones.find(z => z.name === rName);
+            if (rZone) {
+                weaponPositions[w] = { 
+                    x: Math.floor((rZone.x1 + rZone.x2) / 2), 
+                    y: Math.floor((rZone.y1 + rZone.y2) / 2) 
+                };
+            }
+        });
+
+        let firstTurn = characters.findIndex(c => localState.players[c.name]);
+        db.ref(roomPath).update({
+            started: true, turn: firstTurn, solution: solution, hands: hands,
+            positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
+            weaponPositions: weaponPositions, logs: ["Game Started!"]
+        });
+    }
+
+    function startGameUI() {
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'flex';
+        setupDropdowns(); renderBoard(); renderSidebar(); renderNotebook();
     }
 
     function renderBoard() {
         const grid = document.getElementById('grid-overlay');
-        grid.innerHTML = '';
-        
-        for (let y = 0; y < 25; y++) {
-            for (let x = 0; x < 24; x++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                
-                const room = roomZones.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2);
-                
-                if (room) {
-                    cell.classList.add('room');
-                    if (y === room.y1) cell.classList.add('wall-n');
-                    if (y === room.y2) cell.classList.add('wall-s');
-                    if (x === room.x1) cell.classList.add('wall-w');
-                    if (x === room.x2) cell.classList.add('wall-e');
-                    
-                    // Add Room Names at center of room
-                    if (x === Math.floor((room.x1 + room.x2)/2) && y === Math.floor((room.y1 + room.y2)/2)) {
-                        const label = document.createElement('div');
-                        label.className = 'room-label';
-                        label.textContent = room.name;
-                        cell.appendChild(label);
-                    }
-                } else if (isHallway(x, y)) {
-                    cell.classList.add('hallway');
-                    cell.onclick = () => movePlayer(x, y);
-                }
-                grid.appendChild(cell);
-            }
+        grid.innerHTML = "";
+        for (let i = 0; i < 24 * 25; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            const x = i % 24; const y = Math.floor(i / 24);
+            cell.onclick = () => handleMove(x, y);
+            grid.appendChild(cell);
         }
+        updateTokens();
     }
 
-    // --- LOBBY & JOIN ---
-    function joinRoom() {
-        const id = document.getElementById('room-input').value;
-        if(!id) return alert("Enter a room name!");
-        roomPath = 'cluedo/' + id;
-        document.getElementById('char-selection').style.display = 'block';
-        
-        db.ref(roomPath).on('value', snap => {
-            localState = snap.val() || {};
-            updateUI();
-        });
-
-        const container = document.getElementById('char-btns');
-        container.innerHTML = "";
+    function updateTokens() {
+        document.querySelectorAll('.player-token, .weapon-token').forEach(t => t.remove());
         characters.forEach(c => {
-            const b = document.createElement('button');
-            b.textContent = c.name;
-            b.style.background = c.color;
-            b.style.margin = "5px"; b.style.width = "120px";
-            b.onclick = () => selectChar(c.name);
-            container.appendChild(b);
+            const pos = localState.positions?.[c.name];
+            if (!pos) return;
+            const token = document.createElement('div');
+            token.className = 'player-token' + (localState.players?.[c.name]?.eliminated ? ' eliminated' : '');
+            token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
+            token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
+            token.style.backgroundImage = `url('${c.img}')`;
+            token.style.backgroundColor = c.color;
+            document.getElementById('board-wrapper').appendChild(token);
         });
-    }
-
-    function selectChar(name) {
-        myName = name;
-        db.ref(roomPath + '/players/' + name).set({ name, active: true });
-        document.getElementById('lobby').style.display = 'none';
-        document.getElementById('game-container').style.display = 'flex';
-        if(!localState.started) checkStart();
-        
-        // Populate Selects
-        const sS = document.getElementById('s-suspect');
-        const sW = document.getElementById('s-weapon');
-        suspects.forEach(s => sS.innerHTML += `<option>${s}</option>`);
-        weapons.forEach(w => sW.innerHTML += `<option>${w}</option>`);
-    }
-
-    function checkStart() {
-        const pCount = Object.keys(localState.players || {}).length;
-        if(pCount >= 2 && !localState.started) {
-            const sol = { s: suspects[0], w: weapons[0], r: roomZones[0].name };
-            db.ref(roomPath).update({
-                started: true, turn: 0, solution: sol,
-                positions: characters.reduce((a, v) => ({...a, [v.name]: {x: v.startX, y: v.startY}}), {}),
-                logs: ["Game Started! Good luck."]
+        if (localState.weaponPositions) {
+            Object.entries(localState.weaponPositions).forEach(([weapon, pos]) => {
+                const token = document.createElement('div');
+                token.className = 'weapon-token';
+                token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
+                token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
+                token.title = weapon; token.innerText = "🔪";
+                document.getElementById('board-wrapper').appendChild(token);
             });
         }
     }
 
-    // --- CORE GAMEPLAY ---
-    function updateUI() {
-        if(!localState.started) return;
-        renderBoard();
-
-        // Render Tokens
-        const wrapper = document.getElementById('board-wrapper');
-        document.querySelectorAll('.player-domino').forEach(d => d.remove());
-        
-        Object.keys(localState.positions).forEach(p => {
-            const pos = localState.positions[p];
-            const charData = characters.find(c => c.name === p);
-            const dom = document.createElement('div');
-            dom.className = 'player-domino';
-            dom.style.left = (pos.x * (100/24) + (100/48)) + "%";
-            dom.style.top = (pos.y * (100/25) + (100/50)) + "%";
-            dom.style.backgroundColor = charData.color;
-            dom.textContent = charData.icon;
-            wrapper.appendChild(dom);
-        });
-
-        const players = Object.keys(localState.players);
-        const isMyTurn = players[localState.turn] === myName;
-        document.getElementById('turn-info').textContent = isMyTurn ? "YOUR TURN" : `WAITING FOR ${players[localState.turn].toUpperCase()}`;
-        document.getElementById('roll-btn').disabled = !isMyTurn || movesLeft > 0;
-
-        const myPos = localState.positions[myName];
-        const currentRoom = roomZones.find(z => myPos.x >= z.x1 && myPos.x <= z.x2 && myPos.y >= z.y1 && myPos.y <= z.y2);
-        document.getElementById('location-bar').textContent = "LOC: " + (currentRoom ? currentRoom.name : "HALLWAY");
-        
-        document.getElementById('game-log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
+    function renderSidebar() {
+        const turnIdx = localState.turn || 0;
+        const activeChar = characters[turnIdx].name;
+        const isMyTurn = activeChar === myChar;
+        document.getElementById('turn-indicator').textContent = isMyTurn ? "YOUR TURN" : `${activeChar}'s Turn`;
+        document.getElementById('roll-btn').disabled = !isMyTurn || hasMovedThisTurn;
+        document.getElementById('end-turn-btn').disabled = !isMyTurn;
+        document.getElementById('my-hand').innerHTML = (localState.hands?.[myChar] || []).map(c => `<span class="card">${c}</span>`).join('');
+        document.getElementById('log').innerHTML = (localState.logs || []).slice().reverse().map(l => `<div>> ${l}</div>`).join('');
     }
 
     function rollDice() {
-        const r1 = Math.floor(Math.random()*6)+1;
-        const r2 = Math.floor(Math.random()*6)+1;
-        movesLeft = r1 + r2;
-        document.getElementById('d1').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r1];
-        document.getElementById('d2').textContent = ['','⚀','⚁','⚂','⚃','⚄','⚅'][r2];
-        addLog(`${myName} rolled a ${movesLeft}`);
+        document.getElementById('roll-btn').disabled = true;
+        let rolls = 0;
+        const d1 = document.getElementById('die-1');
+        const d2 = document.getElementById('die-2');
+        
+        // ANIMATED DICE logic
+        const anim = setInterval(() => {
+            d1.textContent = diceFaces[Math.floor(Math.random() * 6)];
+            d2.textContent = diceFaces[Math.floor(Math.random() * 6)];
+            rolls++;
+            if (rolls > 12) {
+                clearInterval(anim);
+                const r1 = Math.floor(Math.random() * 6);
+                const r2 = Math.floor(Math.random() * 6);
+                d1.textContent = diceFaces[r1];
+                d2.textContent = diceFaces[r2];
+                currentRoll = (r1 + 1) + (r2 + 1);
+            }
+        }, 70);
     }
 
-    function movePlayer(x, y) {
-        if (movesLeft <= 0) return;
-        const currentPos = localState.positions[myName];
-        const dist = Math.abs(currentPos.x - x) + Math.abs(currentPos.y - y);
-        
-        if (dist <= movesLeft) {
-            db.ref(roomPath + '/positions/' + myName).set({x, y});
-            movesLeft = 0;
-            nextTurn();
-        } else {
-            alert("Too far!");
+    function handleMove(x, y) {
+        if (currentRoll === 0 || characters[localState.turn].name !== myChar) return;
+        const pos = localState.positions[myChar];
+        if (Math.abs(pos.x - x) + Math.abs(pos.y - y) <= currentRoll) {
+            db.ref(roomPath + '/positions/' + myChar).set({ x, y });
+            addLog(`${myChar} moved.`);
+            currentRoll = 0; hasMovedThisTurn = true;
         }
     }
 
-    function nextTurn() {
-        const next = (localState.turn + 1) % Object.keys(localState.players).length;
-        db.ref(roomPath + '/turn').set(next);
+    function makeSuggestion() {
+        if (characters[localState.turn].name !== myChar) return alert("Not your turn!");
+        const pos = localState.positions[myChar];
+        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
+        if (!r) return alert("Must be in a room!");
+        const s = document.getElementById('guess-suspect').value;
+        const w = document.getElementById('guess-weapon').value;
+        const suggestionMsg = `🚨 SUGGESTION: ${myChar} thinks it was ${s} with the ${w} in the ${r}!`;
+        if (localState.positions[s]) db.ref(roomPath + '/positions/' + s).set({ x: pos.x, y: pos.y });
+        if (localState.weaponPositions && localState.weaponPositions[w]) db.ref(roomPath + '/weaponPositions/' + w).set({ x: pos.x, y: pos.y });
+        addLog(suggestionMsg);
+        db.ref(roomPath + '/latestAlert').set({ msg: suggestionMsg, ts: Date.now() });
     }
 
-    function addLog(m) {
-        const logs = localState.logs || [];
-        logs.push(m);
-        if(logs.length > 15) logs.shift();
-        db.ref(roomPath + '/logs').set(logs);
+    function endTurn() {
+        if (characters[localState.turn].name !== myChar) return;
+        let next = (localState.turn + 1) % 4;
+        while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
+            next = (next + 1) % 4;
+            if (next === localState.turn) break;
+        }
+        db.ref(roomPath).update({ turn: next });
+        hasMovedThisTurn = false;
+        document.getElementById('die-1').textContent = "⚀";
+        document.getElementById('die-2').textContent = "⚀";
     }
 
-    function handleSuggestion() {
-        const s = document.getElementById('s-suspect').value;
-        const w = document.getElementById('s-weapon').value;
-        addLog(`🕵️ ${myName} suggests: ${s} with ${w}`);
-        nextTurn();
+    function toggleNote(key) {
+        localStorage.setItem(key, localStorage.getItem(key) === 'true' ? 'false' : 'true');
+        renderNotebook();
     }
 
-    function handleAccusation() {
-        const s = document.getElementById('s-suspect').value;
-        addLog(`🛑 ${myName} made an accusation! Check terminal.`);
-        nextTurn();
+    function renderNotebook() {
+        const container = document.getElementById('notebook-container');
+        const cats = [{ title: "Suspects", items: gameData.suspects }, { title: "Weapons", items: gameData.weapons }, { title: "Rooms", items: gameData.rooms }];
+        let html = "";
+        cats.forEach(cat => {
+            html += `<div class="notepad-category">${cat.title}</div>`;
+            cat.items.forEach(item => {
+                const key = `note-${roomPath}-${myChar}-${item}`;
+                const isCrossed = localStorage.getItem(key) === 'true';
+                html += `<div class="notepad-item ${isCrossed ? 'crossed' : ''}" onclick="toggleNote('${key}')">${item}</div>`;
+            });
+        });
+        container.innerHTML = html;
     }
 
-    window.onload = renderBoard;
+    function setupDropdowns() {
+        const s = document.getElementById('guess-suspect');
+        const w = document.getElementById('guess-weapon');
+        if (s.options.length > 0) return;
+        gameData.suspects.forEach(i => s.innerHTML += `<option>${i}</option>`);
+        gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
+    }
+
+    function makeAccusation() {
+        const pos = localState.positions[myChar];
+        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
+        if (!r) return alert("Must be in a room!");
+        const s = document.getElementById('guess-suspect').value;
+        const w = document.getElementById('guess-weapon').value;
+        if (s === localState.solution.suspect && w === localState.solution.weapon && r === localState.solution.room) {
+            alert("WINNER!"); db.ref(roomPath).update({ started: false, logs: [`${myChar} WON!`] });
+        } else {
+            db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
+            let active = 0;
+            for (let p in localState.players) { if (p !== myChar && !localState.players[p].eliminated) active++; }
+            if (active === 0) {
+                const sol = localState.solution;
+                alert(`GAME OVER! Everyone guessed wrong.\nThe solution was: ${sol.suspect}, ${sol.weapon}, ${sol.room}`);
+                db.ref(roomPath).update({ started: false });
+            } else { alert("WRONG ACCUSATION! You are eliminated."); endTurn(); }
+        }
+    }
+
+    function addLog(msg) {
+        const newLogs = [...(localState.logs || []), msg];
+        if (newLogs.length > 10) newLogs.shift();
+        db.ref(roomPath + '/logs').set(newLogs);
+    }
 </script>
 </body>
 </html>
