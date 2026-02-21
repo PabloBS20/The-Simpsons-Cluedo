@@ -39,6 +39,11 @@
         .notepad-item:hover { background: #333; }
         .notepad-item.crossed { text-decoration: line-through; color: #777; background: #111; }
         .notepad-category { grid-column: span 2; color: var(--accent-color); border-bottom: 1px solid #444; margin-top: 5px; font-size: 0.85em; text-transform: uppercase; padding-bottom: 2px;}
+
+        /* End Screen Styles */
+        #end-screen { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.95); z-index: 4000; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        #end-title { font-size: 3.5rem; margin-bottom: 10px; text-transform: uppercase; }
+        #end-subtitle { font-size: 1.5rem; color: #ccc; margin-bottom: 30px; }
     </style>
 </head>
 <body>
@@ -92,6 +97,12 @@
         </div>
     </div>
 
+    <div id="end-screen">
+        <h1 id="end-title"></h1>
+        <div id="end-subtitle"></div>
+        <button onclick="db.ref(roomPath).remove(); location.reload();" style="font-size: 1.2rem; padding: 15px 30px; background: var(--accent-color);">Play Again / Reset Room</button>
+    </div>
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyCxN2d4RZyt9Q5JOKZxT7pJ5NBirAoxEn4",
@@ -142,7 +153,15 @@
                 lastAlertTimestamp = localState.latestAlert.ts;
                 alert(localState.latestAlert.msg);
             }
-            if (localState.started) { startGameUI(); } else { renderLobby(); }
+            
+            // UI Routing updated to handle end screen
+            if (localState.winner) {
+                showEndScreen();
+            } else if (localState.started) { 
+                startGameUI(); 
+            } else { 
+                renderLobby(); 
+            }
         });
     }
 
@@ -177,10 +196,8 @@
     }
 
     function hostInit() {
-        // STATIC SOLUTION
         const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
         
-        // Categorized remaining cards for distribution
         let sCards = gameData.suspects.filter(c => c !== solution.suspect).sort(() => Math.random() - 0.5);
         let wCards = gameData.weapons.filter(c => c !== solution.weapon).sort(() => Math.random() - 0.5);
         let rCards = gameData.rooms.filter(c => c !== solution.room).sort(() => Math.random() - 0.5);
@@ -189,14 +206,12 @@
         const players = Object.keys(localState.players);
         players.forEach(p => hands[p] = []);
 
-        // Give each player at least 1 Suspect, 1 Weapon, and 1 Room
         players.forEach(p => {
             if(sCards.length > 0) hands[p].push(sCards.pop());
             if(wCards.length > 0) hands[p].push(wCards.pop());
             if(rCards.length > 0) hands[p].push(rCards.pop());
         });
 
-        // Distribute remaining cards normally
         let remaining = [...sCards, ...wCards, ...rCards].sort(() => Math.random() - 0.5);
         remaining.forEach((card, idx) => hands[players[idx % players.length]].push(card));
         
@@ -223,8 +238,34 @@
 
     function startGameUI() {
         document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('end-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         setupDropdowns(); renderBoard(); renderSidebar(); renderNotebook();
+    }
+
+    // Displays the final result screen
+    function showEndScreen() {
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('end-screen').style.display = 'flex';
+
+        const title = document.getElementById('end-title');
+        const sub = document.getElementById('end-subtitle');
+        const sol = localState.solution;
+
+        if (localState.winner === myChar) {
+            title.textContent = "🎉 YOU WON! 🎉";
+            title.style.color = "#2ecc71"; // Green
+            sub.textContent = `You correctly guessed: ${sol.suspect} with the ${sol.weapon} in the ${sol.room}.`;
+        } else if (localState.winner === 'none') {
+            title.textContent = "💀 EVERYONE LOST 💀";
+            title.style.color = "#e74c3c"; // Red
+            sub.innerHTML = `All detectives were eliminated.<br>The correct answer was: <strong>${sol.suspect}</strong> with the <strong>${sol.weapon}</strong> in the <strong>${sol.room}</strong>.`;
+        } else {
+            title.textContent = "❌ YOU LOST ❌";
+            title.style.color = "#e74c3c"; // Red
+            sub.innerHTML = `<strong>${localState.winner}</strong> solved the mystery!<br>It was ${sol.suspect} with the ${sol.weapon} in the ${sol.room}.`;
+        }
     }
 
     function renderBoard() {
@@ -283,7 +324,6 @@
         const totalDisp = document.getElementById('dice-total');
         let rolls = 0;
         
-        // UNICODE DICE ANIMATION logic
         const anim = setInterval(() => {
             d1.textContent = diceFaces[Math.floor(Math.random() * 6)];
             d2.textContent = diceFaces[Math.floor(Math.random() * 6)];
@@ -367,23 +407,30 @@
         gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
     }
 
+    // Updated logic to log the winner rather than just dropping the game state
     function makeAccusation() {
         const pos = localState.positions[myChar];
         const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
         if (!r) return alert("Must be in a room!");
         const s = document.getElementById('guess-suspect').value;
         const w = document.getElementById('guess-weapon').value;
+        
         if (s === localState.solution.suspect && w === localState.solution.weapon && r === localState.solution.room) {
-            alert("WINNER!"); db.ref(roomPath).update({ started: false, logs: [`${myChar} WON!`] });
+            // Found the solution
+            db.ref(roomPath).update({ started: false, winner: myChar, logs: [`${myChar} WON!`] });
         } else {
+            // Eliminated
             db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
             let active = 0;
             for (let p in localState.players) { if (p !== myChar && !localState.players[p].eliminated) active++; }
+            
             if (active === 0) {
-                const sol = localState.solution;
-                alert(`GAME OVER! Everyone guessed wrong.\nThe solution was: ${sol.suspect}, ${sol.weapon}, ${sol.room}`);
-                db.ref(roomPath).update({ started: false });
-            } else { alert("WRONG ACCUSATION! You are eliminated."); endTurn(); }
+                // Game over, everyone eliminated
+                db.ref(roomPath).update({ started: false, winner: "none" });
+            } else { 
+                alert("WRONG ACCUSATION! You are eliminated."); 
+                endTurn(); 
+            }
         }
     }
 
