@@ -9,9 +9,11 @@
     <style>
         :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffd90f; --panel-bg: #1a1a1a; --border-color: #444; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; }
+        
         #lobby-screen { position: fixed; inset: 0; background: #000; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
         input { padding: 12px; border-radius: 5px; border: none; width: 250px; font-size: 1rem; color: #000; }
+        
         #game-container { display: none; width: 100vw; height: 100vh; }
         #board-wrapper { position: relative; flex-grow: 1; background-image: url('tablero.jpg'); background-size: 100% 100%; }
         #grid-overlay { display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(25, 1fr); width: 100%; height: 100%; position: absolute; }
@@ -28,7 +30,6 @@
         .card { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.8em; margin: 2px; display: inline-block; }
         #log { flex-grow: 1; min-height: 80px; background: #000; overflow-y: auto; font-size: 0.75em; padding: 5px; border: 1px solid #333; color: #0f0; }
         
-        /* Unicode Dice Styles */
         .dice-wrapper { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px; }
         .die { font-size: 3.5rem; color: #fff; background: #222; border: 2px solid #444; border-radius: 10px; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center; line-height: 1; box-shadow: inset 0 0 10px rgba(255,255,255,0.1); }
         #dice-total { font-size: 1.2rem; color: var(--accent-color); font-weight: bold; margin-bottom: 5px; text-align: center; }
@@ -39,9 +40,27 @@
         .notepad-item:hover { background: #333; }
         .notepad-item.crossed { text-decoration: line-through; color: #777; background: #111; }
         .notepad-category { grid-column: span 2; color: var(--accent-color); border-bottom: 1px solid #444; margin-top: 5px; font-size: 0.85em; text-transform: uppercase; padding-bottom: 2px;}
+
+        #victory-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; text-align: center; border: 15px solid var(--accent-color);
+        }
+        #victory-overlay h1 { font-size: 5rem; color: var(--accent-color); margin: 0; text-shadow: 4px 4px #000; }
+        #victory-overlay p { font-size: 1.8rem; margin: 20px; line-height: 1.4; }
     </style>
 </head>
 <body>
+
+    <audio id="snd-doh" src="https://www.soundboard.com/handler/DownLoadTrack.ashx?cliptitle=doh&filename=nd/ndm0ndkyndm0ndk5_yge_2fgtf_2bc.mp3"></audio>
+    <audio id="snd-win" src="https://actions.google.com/sounds/v1/human_voices/applause.ogg"></audio>
+    <audio id="snd-lose" src="https://actions.google.com/sounds/v1/cartoon/sad_trombone.ogg"></audio>
+
+    <div id="victory-overlay">
+        <h1 id="win-name">WINNER!</h1>
+        <p id="win-details"></p>
+        <button onclick="location.reload()" style="margin-top:30px; padding: 20px 50px; font-size: 1.5rem; background: var(--accent-color); border-radius: 10px;">PLAY AGAIN</button>
+    </div>
 
     <div id="lobby-screen">
         <h1 style="color:var(--accent-color);">SIMPSONS CLUEDO ONLINE</h1>
@@ -115,19 +134,18 @@
     };
 
     const diceFaces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
-
     const roomZones = [
         { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 }, { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
         { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
         { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 }, { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
         { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 }, { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
-        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
+        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 }, 
         { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 }, { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
         { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
     ];
 
     let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false;
-    let lastAlertTimestamp = 0;
+    let lastAlertTimestamp = 0; let endSoundPlayed = false;
 
     function joinRoom() {
         const id = document.getElementById('room-id').value;
@@ -138,12 +156,38 @@
         
         db.ref(roomPath).on('value', (snap) => {
             localState = snap.val() || {};
+            
+            // Sync Winner Overlay
+            if (localState.winner) {
+                showFinalResult(localState.winner, localState.solution);
+            }
+
             if (localState.latestAlert && localState.latestAlert.ts > lastAlertTimestamp) {
                 lastAlertTimestamp = localState.latestAlert.ts;
                 alert(localState.latestAlert.msg);
             }
-            if (localState.started) { startGameUI(); } else { renderLobby(); }
+            if (localState.started) { startGameUI(); } else if (!localState.winner) { renderLobby(); }
         });
+    }
+
+    function showFinalResult(winner, solution) {
+        const overlay = document.getElementById('victory-overlay');
+        const winTitle = document.getElementById('win-name');
+        const winDetails = document.getElementById('win-details');
+        
+        overlay.style.display = 'flex';
+        winDetails.innerHTML = `Culprit: <b>${solution.suspect}</b> <br> Weapon: <b>${solution.weapon}</b> <br> Room: <b>${solution.room}</b>`;
+
+        if (winner === "NO ONE") {
+            winTitle.textContent = "EVERYONE LOST!";
+            if (!endSoundPlayed) { document.getElementById('snd-lose').play(); endSoundPlayed = true; }
+        } else if (winner === myChar) {
+            winTitle.textContent = "YOU WON!";
+            if (!endSoundPlayed) { document.getElementById('snd-win').play(); endSoundPlayed = true; }
+        } else {
+            winTitle.textContent = winner + " WON!";
+            if (!endSoundPlayed) { document.getElementById('snd-lose').play(); endSoundPlayed = true; }
+        }
     }
 
     function renderLobby() {
@@ -177,10 +221,12 @@
     }
 
     function hostInit() {
-        // STATIC SOLUTION
-        const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
+        const solution = { 
+            suspect: gameData.suspects[Math.floor(Math.random() * gameData.suspects.length)], 
+            weapon: gameData.weapons[Math.floor(Math.random() * gameData.weapons.length)], 
+            room: gameData.rooms[Math.floor(Math.random() * gameData.rooms.length)] 
+        };
         
-        // Categorized remaining cards for distribution
         let sCards = gameData.suspects.filter(c => c !== solution.suspect).sort(() => Math.random() - 0.5);
         let wCards = gameData.weapons.filter(c => c !== solution.weapon).sort(() => Math.random() - 0.5);
         let rCards = gameData.rooms.filter(c => c !== solution.room).sort(() => Math.random() - 0.5);
@@ -188,34 +234,18 @@
         let hands = {};
         const players = Object.keys(localState.players);
         players.forEach(p => hands[p] = []);
-
-        // Give each player at least 1 Suspect, 1 Weapon, and 1 Room
-        players.forEach(p => {
-            if(sCards.length > 0) hands[p].push(sCards.pop());
-            if(wCards.length > 0) hands[p].push(wCards.pop());
-            if(rCards.length > 0) hands[p].push(rCards.pop());
-        });
-
-        // Distribute remaining cards normally
         let remaining = [...sCards, ...wCards, ...rCards].sort(() => Math.random() - 0.5);
         remaining.forEach((card, idx) => hands[players[idx % players.length]].push(card));
         
         let weaponPositions = {};
         const shuffledRooms = [...gameData.rooms].sort(() => Math.random() - 0.5);
         gameData.weapons.forEach((w, idx) => {
-            const rName = shuffledRooms[idx];
-            const rZone = roomZones.find(z => z.name === rName);
-            if (rZone) {
-                weaponPositions[w] = { 
-                    x: Math.floor((rZone.x1 + rZone.x2) / 2), 
-                    y: Math.floor((rZone.y1 + rZone.y2) / 2) 
-                };
-            }
+            const rZone = roomZones.find(z => z.name === shuffledRooms[idx]);
+            if (rZone) weaponPositions[w] = { x: Math.floor((rZone.x1 + rZone.x2) / 2), y: Math.floor((rZone.y1 + rZone.y2) / 2) };
         });
 
-        let firstTurn = characters.findIndex(c => localState.players[c.name]);
         db.ref(roomPath).update({
-            started: true, turn: firstTurn, solution: solution, hands: hands,
+            started: true, turn: 0, solution: solution, hands: hands, winner: null,
             positions: characters.reduce((acc, c) => { acc[c.name] = {x: c.startX, y: c.startY}; return acc; }, {}),
             weaponPositions: weaponPositions, logs: ["Game Started!"]
         });
@@ -259,7 +289,7 @@
                 token.className = 'weapon-token';
                 token.style.left = `calc(${(pos.x + 0.5)} * (100% / 24))`;
                 token.style.top = `calc(${(pos.y + 0.5)} * (100% / 25))`;
-                token.title = weapon; token.innerText = "🔪";
+                token.innerText = "🔪";
                 document.getElementById('board-wrapper').appendChild(token);
             });
         }
@@ -282,19 +312,15 @@
         const d2 = document.getElementById('die2');
         const totalDisp = document.getElementById('dice-total');
         let rolls = 0;
-        
-        // UNICODE DICE ANIMATION logic
         const anim = setInterval(() => {
             d1.textContent = diceFaces[Math.floor(Math.random() * 6)];
             d2.textContent = diceFaces[Math.floor(Math.random() * 6)];
             totalDisp.textContent = "Rolling...";
-            rolls++;
-            if (rolls > 15) {
+            if (++rolls > 15) {
                 clearInterval(anim);
                 const r1 = Math.floor(Math.random() * 6);
                 const r2 = Math.floor(Math.random() * 6);
-                d1.textContent = diceFaces[r1];
-                d2.textContent = diceFaces[r2];
+                d1.textContent = diceFaces[r1]; d2.textContent = diceFaces[r2];
                 currentRoll = (r1 + 1) + (r2 + 1);
                 totalDisp.textContent = "Result: " + currentRoll;
             }
@@ -312,21 +338,42 @@
     }
 
     function makeSuggestion() {
-        if (characters[localState.turn].name !== myChar) return alert("Not your turn!");
         const pos = localState.positions[myChar];
         const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
         if (!r) return alert("Must be in a room!");
         const s = document.getElementById('guess-suspect').value;
         const w = document.getElementById('guess-weapon').value;
-        const suggestionMsg = `🚨 SUGGESTION: ${myChar} thinks it was ${s} with the ${w} in the ${r}!`;
         if (localState.positions[s]) db.ref(roomPath + '/positions/' + s).set({ x: pos.x, y: pos.y });
         if (localState.weaponPositions && localState.weaponPositions[w]) db.ref(roomPath + '/weaponPositions/' + w).set({ x: pos.x, y: pos.y });
-        addLog(suggestionMsg);
-        db.ref(roomPath + '/latestAlert').set({ msg: suggestionMsg, ts: Date.now() });
+        addLog(`🚨 SUGGESTION: ${myChar} thinks it's ${s} with the ${w} in the ${r}`);
+        db.ref(roomPath + '/latestAlert').set({ msg: `${myChar} suggests: ${s}, ${w}, ${r}`, ts: Date.now() });
+    }
+
+    function makeAccusation() {
+        const pos = localState.positions[myChar];
+        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
+        if (!r) return alert("Must be in a room to accuse!");
+        
+        const s = document.getElementById('guess-suspect').value;
+        const w = document.getElementById('guess-weapon').value;
+        
+        if (s === localState.solution.suspect && w === localState.solution.weapon && r === localState.solution.room) {
+            db.ref(roomPath).update({ winner: myChar, started: false });
+        } else {
+            // Wrong Accusation: Play D'oh! locally
+            document.getElementById('snd-doh').play();
+            db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
+            addLog(`❌ ${myChar} made a WRONG ACCUSATION and is eliminated!`);
+            
+            let active = 0;
+            for (let p in localState.players) { if (p !== myChar && !localState.players[p].eliminated) active++; }
+            if (active === 0) {
+                db.ref(roomPath).update({ winner: "NO ONE", started: false });
+            } else { alert("D'OH! You are wrong and eliminated from accusing."); endTurn(); }
+        }
     }
 
     function endTurn() {
-        if (characters[localState.turn].name !== myChar) return;
         let next = (localState.turn + 1) % 4;
         while (!localState.players?.[characters[next].name] || localState.players?.[characters[next].name]?.eliminated) {
             next = (next + 1) % 4;
@@ -334,14 +381,7 @@
         }
         db.ref(roomPath).update({ turn: next });
         hasMovedThisTurn = false;
-        document.getElementById('die1').textContent = "⚀";
-        document.getElementById('die2').textContent = "⚀";
         document.getElementById('dice-total').textContent = "Roll the dice!";
-    }
-
-    function toggleNote(key) {
-        localStorage.setItem(key, localStorage.getItem(key) === 'true' ? 'false' : 'true');
-        renderNotebook();
     }
 
     function renderNotebook() {
@@ -359,32 +399,17 @@
         container.innerHTML = html;
     }
 
+    function toggleNote(key) {
+        localStorage.setItem(key, localStorage.getItem(key) === 'true' ? 'false' : 'true');
+        renderNotebook();
+    }
+
     function setupDropdowns() {
         const s = document.getElementById('guess-suspect');
         const w = document.getElementById('guess-weapon');
         if (s.options.length > 0) return;
         gameData.suspects.forEach(i => s.innerHTML += `<option>${i}</option>`);
         gameData.weapons.forEach(i => w.innerHTML += `<option>${i}</option>`);
-    }
-
-    function makeAccusation() {
-        const pos = localState.positions[myChar];
-        const r = roomZones.find(z => pos.x >= z.x1 && pos.x <= z.x2 && pos.y >= z.y1 && pos.y <= z.y2)?.name;
-        if (!r) return alert("Must be in a room!");
-        const s = document.getElementById('guess-suspect').value;
-        const w = document.getElementById('guess-weapon').value;
-        if (s === localState.solution.suspect && w === localState.solution.weapon && r === localState.solution.room) {
-            alert("WINNER!"); db.ref(roomPath).update({ started: false, logs: [`${myChar} WON!`] });
-        } else {
-            db.ref(roomPath + '/players/' + myChar + '/eliminated').set(true);
-            let active = 0;
-            for (let p in localState.players) { if (p !== myChar && !localState.players[p].eliminated) active++; }
-            if (active === 0) {
-                const sol = localState.solution;
-                alert(`GAME OVER! Everyone guessed wrong.\nThe solution was: ${sol.suspect}, ${sol.weapon}, ${sol.room}`);
-                db.ref(roomPath).update({ started: false });
-            } else { alert("WRONG ACCUSATION! You are eliminated."); endTurn(); }
-        }
     }
 
     function addLog(msg) {
