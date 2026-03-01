@@ -20,7 +20,13 @@
         .section { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; }
         
         .player-token { width: 40px; height: 40px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 50%; border: 2px solid #fff; background-position: center; background-size: cover; box-shadow: 0 0 10px rgba(0,0,0,0.5); z-index: 10;}
-        .weapon-token { width: 25px; height: 25px; position: absolute; transform: translate(-50%, -50%); transition: 0.4s; border-radius: 5px; background: #555; border: 1px solid #aaa; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 0 5px rgba(0,0,0,0.8); z-index: 5;}
+        
+        /* Offset weapons slightly so they don't perfectly overlap players on the same tile */
+        .weapon-token { width: 22px; height: 22px; position: absolute; transform: translate(-90%, -90%); transition: 0.4s; border-radius: 4px; background: #555; border: 1px solid #aaa; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 0 5px rgba(0,0,0,0.8); z-index: 15;}
+        
+        /* Room label styling */
+        .room-label { position: absolute; color: rgba(255, 255, 255, 0.6); font-weight: bold; text-align: center; text-transform: uppercase; font-size: 0.9rem; pointer-events: none; z-index: 2; transform: translate(-50%, -50%); text-shadow: 2px 2px 4px #000; }
+        
         .eliminated { opacity: 0.3; filter: grayscale(1); }
         
         button { padding: 10px; background: var(--accent-color); border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #000; }
@@ -122,20 +128,19 @@
     const gameData = {
         suspects: ["Lenny", "Sideshow Bob", "Flanders", "Fat Tony", "Krusty", "Smithers"],
         weapons: ["Poisoned Donut", "Saxophone", "Knife", "Gun", "Candelabrum", "Book"],
-        rooms: ["Cafeteria", "Lab", "Art's class", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", "Cinema room", "Annex"]
+        rooms: ["Cafeteria", "2ºA", "Teacher's lounge", "ICT room", "Gym", "Library", "English department", "Hall", "Bathroom", ]
     };
 
     const diceFaces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
 
     const roomZones = [
         { name: "Cafeteria", x1: 0, y1: 0, x2: 5, y2: 5 }, { name: "2ºA", x1: 8, y1: 0, x2: 15, y2: 6 },
-        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 },
-        { name: "Lab", x1: 0, y1: 14, x2: 6, y2: 17 }, { name: "Annex", x1: 10, y1: 14, x2: 14, y2: 17 }, 
+        { name: "Teacher's lounge", x1: 18, y1: 0, x2: 23, y2: 5 }, { name: "ICT room", x1: 0, y1: 8, x2: 6, y2: 12 }, 
         { name: "Gym", x1: 17, y1: 8, x2: 23, y2: 12 }, { name: "Library", x1: 17, y1: 14, x2: 23, y2: 18 },
-        { name: "English department", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
-        { name: "Bathroom", x1: 17, y1: 20, x2: 23, y2: 24 }, { name: "Art's class", x1: 7, y1: 9, x2: 10, y2: 12 },
-        { name: "Cinema room", x1: 13, y1: 9, x2: 16, y2: 12 }
+        { name: "Bathroom", x1: 0, y1: 19, x2: 6, y2: 24 }, { name: "Hall", x1: 9, y1: 19, x2: 14, y2: 24 },
+        { name: "English department", x1: 17, y1: 20, x2: 23, y2: 24 },
     ];
+
 
     let roomPath = ""; let myChar = ""; let localState = {}; let currentRoll = 0; let hasMovedThisTurn = false;
     let lastAlertTimestamp = 0;
@@ -195,8 +200,13 @@
         db.ref(roomPath + '/players/' + name).set({ eliminated: false });
     }
 
+
     function hostInit() {
-        const solution = { suspect: "Smithers", weapon: "Book", room: "English department" };
+        const solution = { 
+            suspect: gameData.suspects[Math.floor(Math.random() * gameData.suspects.length)], 
+            weapon: gameData.weapons[Math.floor(Math.random() * gameData.weapons.length)], 
+            room: gameData.rooms[Math.floor(Math.random() * gameData.rooms.length)] 
+        };
         
         let sCards = gameData.suspects.filter(c => c !== solution.suspect).sort(() => Math.random() - 0.5);
         let wCards = gameData.weapons.filter(c => c !== solution.weapon).sort(() => Math.random() - 0.5);
@@ -215,16 +225,23 @@
         let remaining = [...sCards, ...wCards, ...rCards].sort(() => Math.random() - 0.5);
         remaining.forEach((card, idx) => hands[players[idx % players.length]].push(card));
         
+        // Define specific rooms for weapons as requested
+        const targetRooms = ["Cafeteria", "2ºA", "Teacher's lounge", "ICT room", "Hall"];
+        const shuffledTargets = targetRooms.sort(() => Math.random() - 0.5);
+        
         let weaponPositions = {};
-        const shuffledRooms = [...gameData.rooms].sort(() => Math.random() - 0.5);
-        gameData.weapons.forEach((w, idx) => {
-            const rName = shuffledRooms[idx];
+        
+        // Hardcode the Book to the English department
+        const englishDept = roomZones.find(z => z.name === "English department");
+        weaponPositions["Book"] = { x: englishDept.x1 + 1, y: englishDept.y1 + 1 };
+
+        // Distribute the other 5 weapons to the other 5 requested rooms
+        const otherWeapons = gameData.weapons.filter(w => w !== "Book");
+        otherWeapons.forEach((w, idx) => {
+            const rName = shuffledTargets[idx];
             const rZone = roomZones.find(z => z.name === rName);
             if (rZone) {
-                weaponPositions[w] = { 
-                    x: Math.floor((rZone.x1 + rZone.x2) / 2), 
-                    y: Math.floor((rZone.y1 + rZone.y2) / 2) 
-                };
+                weaponPositions[w] = { x: rZone.x1 + 1, y: rZone.y1 + 1 };
             }
         });
 
@@ -268,7 +285,7 @@
         }
     }
 
-    function renderBoard() {
+   function renderBoard() {
         const grid = document.getElementById('grid-overlay');
         grid.innerHTML = "";
         for (let i = 0; i < 24 * 25; i++) {
@@ -278,6 +295,25 @@
             cell.onclick = () => handleMove(x, y);
             grid.appendChild(cell);
         }
+
+        // Draw Precise Room Names
+        roomZones.forEach(z => {
+            const label = document.createElement('div');
+            label.className = 'room-label';
+            const leftPerc = ((z.x1 + z.x2 + 1) / 2) * (100 / 24);
+            let topPerc = ((z.y1 + z.y2 + 1) / 2) * (100 / 25);
+
+            // Slightly move down specific room labels (by 1 grid unit)
+            if (["Cafeteria", "2ºA", "Teacher's lounge"].includes(z.name)) {
+                topPerc += (1 * (100 / 25));
+            }
+
+            label.style.left = `calc(${leftPerc}%)`;
+            label.style.top = `calc(${topPerc}%)`;
+            label.textContent = z.name;
+            grid.appendChild(label);
+        });
+
         updateTokens();
     }
 
@@ -442,6 +478,8 @@
 </script>
 </body>
 </html>
+
+
 
 
 
