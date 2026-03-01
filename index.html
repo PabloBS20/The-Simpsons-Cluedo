@@ -200,12 +200,12 @@
         db.ref(roomPath + '/players/' + name).set({ eliminated: false });
     }
 
-
     function hostInit() {
-        const solution = { 
-            suspect: gameData.suspects[Math.floor(Math.random() * gameData.suspects.length)], 
-            weapon: gameData.weapons[Math.floor(Math.random() * gameData.weapons.length)], 
-            room: gameData.rooms[Math.floor(Math.random() * gameData.rooms.length)] 
+        // RANDOMIZED SOLUTION LOGIC HERE
+        const solution = {
+            suspect: gameData.suspects[Math.floor(Math.random() * gameData.suspects.length)],
+            weapon: gameData.weapons[Math.floor(Math.random() * gameData.weapons.length)],
+            room: gameData.rooms[Math.floor(Math.random() * gameData.rooms.length)]
         };
         
         let sCards = gameData.suspects.filter(c => c !== solution.suspect).sort(() => Math.random() - 0.5);
@@ -225,22 +225,15 @@
         let remaining = [...sCards, ...wCards, ...rCards].sort(() => Math.random() - 0.5);
         remaining.forEach((card, idx) => hands[players[idx % players.length]].push(card));
         
-        // Define specific rooms for weapons as requested
-        const targetRooms = ["Cafeteria", "2ºA", "Teacher's lounge", "ICT room", "Hall"];
-        const shuffledTargets = targetRooms.sort(() => Math.random() - 0.5);
-        
+        // Fully randomize weapon starting positions
         let weaponPositions = {};
+        const shuffledRoomsForWeapons = [...gameData.rooms].sort(() => Math.random() - 0.5);
         
-        // Hardcode the Book to the English department
-        const englishDept = roomZones.find(z => z.name === "English department");
-        weaponPositions["Book"] = { x: englishDept.x1 + 1, y: englishDept.y1 + 1 };
-
-        // Distribute the other 5 weapons to the other 5 requested rooms
-        const otherWeapons = gameData.weapons.filter(w => w !== "Book");
-        otherWeapons.forEach((w, idx) => {
-            const rName = shuffledTargets[idx];
+        gameData.weapons.forEach((w, idx) => {
+            const rName = shuffledRoomsForWeapons[idx];
             const rZone = roomZones.find(z => z.name === rName);
             if (rZone) {
+                // Place it slightly offset from the top left of the room to keep it visible
                 weaponPositions[w] = { x: rZone.x1 + 1, y: rZone.y1 + 1 };
             }
         });
